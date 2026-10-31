@@ -422,3 +422,10 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .table--stats td { padding: 10px 4px; font-size: 13px; }
 }
 .grid > .grid, .toolbar { min-width: 0; }
+
+/* Menu groupé */
+.side nav { overflow-y: auto; min-height: 0; margin: 0 -4px; padding: 0 4px; }
+.nav-group { display: block; padding: 14px 12px 4px; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--nav-muted); opacity: .75; }
+.side nav .navlink { padding: 8px 12px; }
+.sheet-menu__group { padding: 10px 2px 0; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.sheet-menu__group:first-child { padding-top: 0; }

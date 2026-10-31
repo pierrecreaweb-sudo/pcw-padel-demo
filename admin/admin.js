@@ -126,6 +126,15 @@
     "mon-site": { label: "Mon site", icon: "brush", render: viewSite },
     reglages: { label: "Réglages", icon: "gear", render: viewSettings },
   };
+  // Menu groupé dans l'ordre d'usage : le quotidien d'abord, puis le suivi de l'activité,
+  // puis la vitrine (site et partage), enfin les réglages.
+  const NAV_GROUPS = [
+    { title: null, keys: ["dashboard"] },
+    { title: "Au quotidien", keys: ["reservations", "agenda", "messages", "joueurs"] },
+    { title: "Mon activité", keys: ["statistiques", "avis"] },
+    { title: "Ma vitrine", keys: ["partager", "mon-site", "prestations"] },
+    { title: "Compte", keys: ["reglages"] },
+  ];
   const currentView = () => { const h = location.hash.replace("#", ""); return VIEWS[h] ? h : "dashboard"; };
   window.addEventListener("hashchange", () => { closeDrawer(); render(); window.scrollTo(0, 0); });
 
@@ -205,7 +214,7 @@
         <div class="side__brand"><span class="dot"></span><span>${esc(S.coach.display_name.toUpperCase())}</span></div>
         ${S.coaches.length > 1 ? `<select class="coach-switch" id="coach-switch" aria-label="Changer de coach">${S.coaches.map((c) =>
           `<option value="${c.id}" ${c.id === S.coach.id ? "selected" : ""}>${esc(c.display_name)}</option>`).join("")}</select>` : ""}
-        <nav aria-label="Menu">${Object.keys(VIEWS).map(navItem).join("")}</nav>
+        <nav aria-label="Menu">${NAV_GROUPS.map((g) => `${g.title ? `<span class="nav-group">${g.title}</span>` : ""}${g.keys.map(navItem).join("")}`).join("")}</nav>
         <div class="side__foot">
           <a href="${siteUrl}" target="_blank" rel="noopener">Voir mon site ↗</a>
           <button type="button" data-action="sign-out">Se déconnecter</button>
@@ -1759,10 +1768,14 @@
     more: () => openDrawer({
       title: "Plus",
       body: `<div class="sheet-menu">
-        <a href="#statistiques">${icon("chart")} Statistiques</a><a href="#avis">${icon("star")} Avis des élèves</a>
-        <a href="#partager">${icon("share")} Partager ma page</a>
+        <span class="sheet-menu__group">Au quotidien</span>
         <a href="#messages">${icon("mail")} Messages${S.messages.some((m) => m.status === "new") ? ` <span class="badge" style="margin-left:auto">${S.messages.filter((m) => m.status === "new").length}</span>` : ""}</a>
-        <a href="#prestations">${icon("tag")} Prestations et lieux</a><a href="#mon-site">${icon("brush")} Mon site</a><a href="#reglages">${icon("gear")} Réglages</a>
+        <span class="sheet-menu__group">Mon activité</span>
+        <a href="#statistiques">${icon("chart")} Statistiques</a><a href="#avis">${icon("star")} Avis des élèves</a>
+        <span class="sheet-menu__group">Ma vitrine</span>
+        <a href="#partager">${icon("share")} Partager ma page</a><a href="#mon-site">${icon("brush")} Mon site</a><a href="#prestations">${icon("tag")} Prestations et lieux</a>
+        <span class="sheet-menu__group">Compte</span>
+        <a href="#reglages">${icon("gear")} Réglages</a>
         <a href="../index.html?c=${encodeURIComponent(S.coach.slug)}" target="_blank" rel="noopener">${icon("ext")} Voir mon site</a>
         <button type="button" data-action="sign-out">${icon("out")} Se déconnecter</button></div>`,
     }),
