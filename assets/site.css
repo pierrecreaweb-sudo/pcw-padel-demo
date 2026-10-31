@@ -148,6 +148,10 @@ a { color: inherit; }
   .shot--main .ph__tag { display: none; }
 }
 @media (max-width: 420px) { .hero-badge { display: none; } }
+@media (max-width: 520px) {
+  /* Nom du coach en entier à côté du bouton « Réserver » : police moins large sur téléphone. */
+  .brand { font-size: 14px; font-stretch: 100%; letter-spacing: .03em; }
+}
 
 /* -------------------------------------------------------------- sections --- */
 .section { padding-block: 80px; }
