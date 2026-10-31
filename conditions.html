@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Conditions de réservation</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Conditions de réservation, données personnelles et mentions légales.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  .legal { max-width: 760px; margin: 40px auto 80px; }
+  .legal .panel { padding: 32px; }
+  .legal h1 { margin: 0 0 6px; }
+  .legal .updated { margin: 0 0 24px; color: var(--muted); font-size: 14px; }
+  .legal nav { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+  .legal nav a { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line); text-decoration: none; font-weight: 700; font-size: 14px; color: var(--brand); }
+  .legal section { padding-top: 8px; scroll-margin-top: 90px; }
+  .legal section + section { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 28px; }
+  .legal h2 { margin: 0 0 14px; font: 800 24px/1.2 var(--f-display); color: var(--brand); }
+  .legal h3 { margin: 20px 0 6px; font-size: 16px; color: var(--ink); }
+  .legal p, .legal li { line-height: 1.65; color: var(--ink); }
+  .legal ul { padding-left: 20px; }
+  .legal .back { display: inline-flex; margin-top: 28px; }
+  @media (max-width: 560px) { .legal .panel { padding: 22px 18px; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar__in">
+    <a class="brand" href="index.html" id="brand"><span class="brand__mark" aria-hidden="true"></span><span id="brand-text">CONDITIONS</span></a>
+    <a class="btn btn--ball btn--sm" href="index.html#reserver" id="book-link">Réserver</a>
+  </div>
+</header>
+<main class="wrap">
+  <article class="legal" id="legal" aria-live="polite">
+    <div class="panel"><div class="skeleton"></div><div class="skeleton" style="margin-top:12px;width:60%"></div></div>
+  </article>
+</main>
+<script src="assets/config.js"></script>
+<script src="assets/core.js"></script>
+<script src="assets/demo-data.js"></script>
+<script src="assets/api.js"></script>
+<script>
+(function () {
+  "use strict";
+  const P = window.PCW, esc = P.esc;
+  const el = document.getElementById("legal");
+  const q = new URLSearchParams(location.search).get("c");
+  const home = (hash = "") => `index.html${q ? "?c=" + encodeURIComponent(q) : ""}${hash}`;
+  document.getElementById("brand").href = home();
+  document.getElementById("book-link").href = home("#reserver");
+
+  function hours(h) { return h ? `${h} heure${h > 1 ? "s" : ""}` : "le début de la séance"; }
+
+  function render(site) {
+    const { coach, content: c = {}, theme = {} } = site;
+    const name = coach.display_name;
+    const legal = c.legal_name || name;
+    const email = c.email || "";
+    document.title = `Conditions de réservation · ${name}`;
+    document.getElementById("brand-text").textContent = theme.logo_text || name.toUpperCase();
+    const root = document.documentElement.style;
+    if (P.hexToRgb(theme.primary)) { root.setProperty("--brand", theme.primary); root.setProperty("--on-brand", P.readableOn(theme.primary)); root.setProperty("--brand-2", P.mix(theme.primary, "#4F8EF7", 0.35)); }
+    if (P.hexToRgb(theme.accent)) root.setProperty("--ball", theme.accent);
+    const extra = String(c.conditions_extra || "").trim();
+    const contactLine = email ? `par email à <strong style="user-select:all">${esc(email)}</strong>` : "via le formulaire de contact du site";
+
+    el.innerHTML = `<div class="panel">
+      <p class="eyebrow eyebrow--brand">${esc(name)}</p>
+      <h1 class="h2">Conditions de réservation</h1>
+      <p class="updated">Ces conditions s'appliquent à toute séance réservée sur ce site.</p>
+      <nav aria-label="Sommaire"><a href="#reservation">Réservation</a><a href="#donnees">Données personnelles</a><a href="#mentions">Mentions légales</a></nav>
+
+      <section id="reservation">
+        <h2>Réservation et annulation</h2>
+        <h3>Réserver une séance</h3>
+        <p>Les séances se réservent en ligne parmi les créneaux proposés, au plus tard ${hours(coach.min_notice_hours)} avant leur début et jusqu'à ${coach.max_advance_days} jours à l'avance.
+        ${coach.auto_confirm ? "La réservation est confirmée immédiatement par email." : "La réservation est une demande : elle est confirmée par email après validation par le coach. Le créneau est bloqué en attendant."}</p>
+        <h3>Tarifs et paiement</h3>
+        <p>Les tarifs affichés sont en euros, toutes taxes comprises. Le règlement se fait sur place, directement auprès du coach, sauf indication contraire au moment de la réservation.</p>
+        <h3>Annulation par le joueur</h3>
+        <p>Vous pouvez annuler gratuitement une séance jusqu'à ${hours(coach.cancel_hours)} avant son début, grâce au lien « Gérer ma réservation » reçu par email. Passé ce délai, l'annulation en ligne n'est plus possible : contactez directement le coach.</p>
+        <h3>Annulation ou modification par le coach</h3>
+        <p>Le coach peut être amené à déplacer ou annuler une séance (blessure, conditions météo, indisponibilité du terrain). Vous êtes alors prévenu par email et la séance n'est pas due.</p>
+        ${extra ? `<h3>Conditions particulières</h3><p>${esc(extra).replace(/\n/g, "<br>")}</p>` : ""}
+      </section>
+
+      <section id="donnees">
+        <h2>Données personnelles</h2>
+        <p><strong>Responsable du traitement :</strong> ${esc(legal)}${c.siret ? `, SIRET ${esc(c.siret)}` : ""}.</p>
+        <p><strong>Données collectées :</strong> nom, prénom, email, téléphone, niveau de jeu, messages, ainsi que l'historique de vos séances.</p>
+        <p><strong>Pourquoi :</strong> organiser vos séances (confirmation, rappel, modification) et répondre à vos messages. Ces données ne sont ni vendues ni utilisées à des fins publicitaires.</p>
+        <p><strong>Qui y a accès :</strong> uniquement ${esc(name)}, ainsi que les prestataires techniques qui font fonctionner le site (hébergement, envoi des emails), dans la limite de leur mission.</p>
+        <p><strong>Durée de conservation :</strong> 3 ans après votre dernière séance ou votre dernier échange, puis suppression.</p>
+        <p><strong>Vos droits :</strong> vous pouvez accéder à vos données, les corriger, demander leur suppression ou vous opposer à leur utilisation, ${contactLine}. Vous pouvez aussi adresser une réclamation à la CNIL (cnil.fr).</p>
+        <p><strong>Cookies :</strong> ce site n'utilise aucun cookie publicitaire ni de mesure d'audience. Seules des données techniques nécessaires à son fonctionnement sont enregistrées dans votre navigateur.</p>
+      </section>
+
+      <section id="mentions">
+        <h2>Mentions légales</h2>
+        <p><strong>Éditeur du site :</strong> ${esc(legal)}${c.siret ? `, SIRET ${esc(c.siret)}` : ""}${email ? `, ${esc(email)}` : ""}${c.phone ? `, ${esc(c.phone)}` : ""}.</p>
+        <p><strong>Directeur de la publication :</strong> ${esc(name)}.</p>
+        <p><strong>Conception et maintenance :</strong> Pierre Créa Web, Montauban.</p>
+        <p><strong>Hébergement du site :</strong> GitHub Pages, GitHub Inc., 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis.</p>
+        <p><strong>Hébergement des données :</strong> Supabase, serveurs situés dans l'Union européenne.</p>
+      </section>
+      <a class="btn btn--brand back" href="${esc(home())}">Retour au site</a>
+    </div>`;
+    if (location.hash) { const t = document.querySelector(location.hash); if (t) t.scrollIntoView(); }
+  }
+
+  (async function init() {
+    try {
+      const api = await P.backend();
+      const site = await api.getSite(P.currentSlug());
+      if (!site) throw new Error();
+      render(site);
+    } catch {
+      el.innerHTML = `<div class="panel"><h1 class="h3">Page introuvable</h1><p class="muted">Ce site de coach n'existe pas ou n'est pas encore en ligne.</p></div>`;
+    }
+  })();
+})();
+</script>
+</body>
+</html>

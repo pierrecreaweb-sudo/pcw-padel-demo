@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Ma réservation</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar__in">
+    <a class="brand" href="index.html" id="brand"><span class="brand__mark" aria-hidden="true"></span><span id="brand-text">MA RÉSERVATION</span></a>
+  </div>
+</header>
+<main class="wrap">
+  <div class="manage" id="manage" aria-live="polite">
+    <div class="panel"><div class="skeleton"></div><div class="skeleton" style="margin-top:12px;width:60%"></div></div>
+  </div>
+</main>
+<script src="assets/config.js"></script>
+<script src="assets/core.js"></script>
+<script src="assets/demo-data.js"></script>
+<script src="assets/api.js"></script>
+<script>
+(function () {
+  "use strict";
+  const P = window.PCW, esc = P.esc;
+  const el = document.getElementById("manage");
+  const params = new URLSearchParams(location.search);
+  const token = params.get("t") || "";
+  const slug = params.get("c") || P.currentSlug();
+  const home = `index.html${slug ? "?c=" + encodeURIComponent(slug) : ""}`;
+  document.getElementById("brand").href = home;
+  let api, booking, confirming = false, error = "", busy = false;
+
+  const LABEL = { confirmed: "Confirmée", pending: "En attente de validation", cancelled: "Annulée", completed: "Terminée", no_show: "Absence" };
+
+  function render() {
+    if (!booking) {
+      el.innerHTML = `<div class="panel"><h1 class="h3">Réservation introuvable</h1>
+        <p class="muted">Ce lien n'est plus valide. Vérifiez qu'il est complet ou contactez votre coach.</p>
+        <a class="btn btn--brand" href="${home}">Retour au site</a></div>`;
+      return;
+    }
+    const b = booking, tz = b.coach.timezone;
+    const loc = b.location;
+    document.getElementById("brand-text").textContent = b.coach.display_name.toUpperCase();
+    const gcal = P.googleCalendarUrl({ title: `${b.service_name} avec ${b.coach.display_name}`, start: b.starts_at, end: b.ends_at,
+      location: loc ? [loc.name, loc.address].filter(Boolean).join(", ") : "", details: location.href });
+    const active = b.status === "confirmed" || b.status === "pending";
+    el.innerHTML = `<div class="panel">
+      <p class="eyebrow eyebrow--brand">Ma réservation</p>
+      <h1 class="h2" style="font-size:32px">${esc(b.service_name)}</h1>
+      <span class="status status--${esc(b.status)}">${LABEL[b.status] || esc(b.status)}</span>
+      <dl class="summary" style="position:static;margin-top:22px;display:grid;gap:14px">
+        <div><dt>Date</dt><dd>${esc(P.fmtDate(b.starts_at, tz))}</dd></div>
+        <div><dt>Horaire</dt><dd>${P.fmtTime(b.starts_at, tz)} – ${P.fmtTime(b.ends_at, tz)}</dd></div>
+        ${loc ? `<div><dt>Lieu</dt><dd>${esc(loc.name)}${loc.address ? `<br><span class="muted" style="font-weight:500">${esc(loc.address)}</span>` : ""}
+          ${/^https:\/\//i.test(loc.maps_url || "") ? `<br><a href="${esc(loc.maps_url)}" target="_blank" rel="noopener">Itinéraire</a>` : ""}</dd></div>` : ""}
+        ${b.party_size > 1 ? `<div><dt>Joueurs</dt><dd>${b.party_size}</dd></div>` : ""}
+        ${b.price_cents ? `<div><dt>Tarif</dt><dd>${P.fmtPrice(b.price_cents)} <span class="muted" style="font-weight:500">à régler sur place</span></dd></div>` : ""}
+        <div><dt>Coach</dt><dd>${esc(b.coach.display_name)}${b.coach.phone ? ` · <span style="user-select:all">${esc(b.coach.phone)}</span>` : ""}</dd></div>
+      </dl>
+      ${error ? `<p class="alert alert--err" role="alert">${esc(error)}</p>` : ""}
+      ${active ? (confirming
+        ? `<div class="alert alert--err" style="background:#FFF4DE;color:#7A4A00">Annuler cette séance ? Le créneau sera libéré pour d'autres joueurs.</div>
+           <div class="actions"><button type="button" class="btn btn--ghost" id="keep">Garder ma séance</button>
+           <button type="button" class="btn btn--brand" id="do-cancel" ${busy ? "disabled" : ""}>${busy ? "Annulation…" : "Oui, annuler"}</button></div>`
+        : `<div class="actions"><a class="btn btn--brand" href="${esc(gcal)}" target="_blank" rel="noopener">Ajouter à Google Agenda</a>
+           ${b.can_cancel ? `<button type="button" class="btn btn--ghost" id="ask-cancel">Annuler la séance</button>`
+             : `<p class="muted" style="margin:0;align-self:center">Annulation en ligne possible jusqu'à ${b.coach.cancel_hours} h avant. Passé ce délai, contactez votre coach.</p>`}</div>`)
+        : `<div class="actions"><a class="btn btn--ball" href="${home}#reserver">Réserver une nouvelle séance</a></div>`}
+    </div>`;
+  }
+
+  el.addEventListener("click", async (e) => {
+    const id = e.target.id;
+    if (id === "ask-cancel") { confirming = true; error = ""; render(); }
+    if (id === "keep") { confirming = false; render(); }
+    if (id === "do-cancel") {
+      busy = true; render();
+      try { booking = await api.cancelBooking(token); confirming = false; error = ""; }
+      catch (err) { error = err.message; confirming = false; }
+      busy = false; render();
+    }
+  });
+
+  (async function init() {
+    try {
+      api = await P.backend();
+      booking = token ? await api.getBooking(token) : null;
+    } catch (e) { booking = null; }
+    render();
+  })();
+})();
+</script>
+</body>
+</html>
