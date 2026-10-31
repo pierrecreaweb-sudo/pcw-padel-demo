@@ -143,6 +143,9 @@ a { color: inherit; }
   .shot--main { aspect-ratio: 5 / 4; }
   .hero-badge { right: 0; bottom: 8px; }
   .shot--inset :is(.ph__tag, .ph__icon) { display: none; }
+  /* La petite photo couvre le bas à gauche : le libellé de la grande remonte en haut à droite. */
+  .shot--main .ph { place-items: start end; padding: 14px; }
+  .shot--main .ph__tag { display: none; }
 }
 @media (max-width: 420px) { .hero-badge { display: none; } }
 
