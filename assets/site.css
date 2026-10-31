@@ -290,7 +290,28 @@ a { color: inherit; }
 .quote { margin: 0; padding: 24px; border-radius: var(--r); background: var(--card); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 14px; }
 .quote p { margin: 0; font-size: 17px; line-height: 1.55; }
 .quote footer { margin-top: auto; font-weight: 700; color: var(--brand); }
-.stars { color: #C79A00; letter-spacing: 2px; }
+.stars { display: inline-flex; gap: 2px; color: #C79A00; letter-spacing: 2px; }
+.stars i { display: inline-flex; width: 18px; height: 18px; }
+.stars i svg { width: 100%; height: 100%; fill: rgba(11, 24, 48, .14); }
+.stars i.on svg { fill: #F2B300; }
+.rating-head { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; margin: -6px 0 26px; padding: 18px 22px; border-radius: var(--r); background: var(--card); border: 1px solid var(--line); }
+.rating-head__score { display: flex; align-items: baseline; gap: 6px; color: var(--brand); }
+.rating-head__value { font: 900 54px/1 var(--f-display); font-stretch: 112%; }
+.rating-head__max { font: 800 20px var(--f-display); color: var(--muted); }
+.rating-head p { margin: 4px 0 0; }
+.rating-head .muted { font-size: 14px; }
+.quote--review { gap: 10px; }
+.quote--review .stars i { width: 16px; height: 16px; }
+.quote footer small { display: block; font-weight: 500; font-size: 13px; color: var(--muted); margin-top: 2px; }
+.quote__empty { font-size: 15px !important; font-style: italic; }
+.quote__reply { margin: 0; padding: 10px 14px; border-left: 3px solid var(--brand-2); background: var(--surface); border-radius: 0 10px 10px 0; font-size: 14px; line-height: 1.5; }
+.quote__reply b { display: block; color: var(--brand); margin-bottom: 2px; }
+.reviews-more { margin-top: 18px; text-align: center; }
+.hero-rating { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 18px; color: var(--on-brand); text-decoration: none; font-size: 14px; }
+.hero-rating b { font-size: 16px; }
+.hero-rating span:last-child { color: var(--on-brand-muted); }
+.hero-rating .stars i svg { fill: rgba(255, 255, 255, .25); }
+.hero-rating .stars i.on svg { fill: #F2B300; }
 
 /* -------------------------------------------------------------- contact --- */
 .contact { background: var(--brand); color: var(--on-brand); }

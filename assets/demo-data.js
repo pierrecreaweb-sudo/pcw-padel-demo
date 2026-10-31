@@ -16,7 +16,7 @@
       id: COACH_ID, slug: "demo", display_name: "Lucas Ferrand", city: "Toulouse", status: "live",
       custom_domain: null, timezone: tz, min_notice_hours: 12, max_advance_days: 30, cancel_hours: 24,
       auto_confirm: true, buffer_minutes: 0, slot_step_minutes: 30, max_bookings_per_day: null,
-      notify_email: "coach@exemple.fr", ical_token: "d3m0d3m0-0000-4000-8000-000000000000",
+      notify_email: "coach@exemple.fr", ical_token: "d3m0d3m0-0000-4000-8000-000000000000", review_requests: true,
     };
     const theme = {
       primary: "#0E2A52", accent: "#E4F55B", surface: "#F2F5F9",
@@ -45,8 +45,8 @@
       conditions_extra: "Une séance non annulée dans le délai, ou en cas d'absence, reste due. En cas de retard, la séance se termine à l'heure prévue.",
     };
     const locations = [
-      { id: L1, coach_id: COACH_ID, name: "Padel Club Garonne", address: "12 chemin des Courts, 31200 Toulouse", maps_url: "https://maps.google.com/?q=Toulouse", position: 0 },
-      { id: L2, coach_id: COACH_ID, name: "Le Patio Padel", address: "4 avenue du Stade, 31130 Balma", maps_url: "https://maps.google.com/?q=Balma", position: 1 },
+      { id: L1, coach_id: COACH_ID, name: "Padel Club Garonne", address: "12 chemin des Courts, 31200 Toulouse", maps_url: "https://maps.google.com/?q=Toulouse", position: 0, retro_mode: "per_hour", retro_value: 15 },
+      { id: L2, coach_id: COACH_ID, name: "Le Patio Padel", address: "4 avenue du Stade, 31130 Balma", maps_url: "https://maps.google.com/?q=Balma", position: 1, retro_mode: "percent", retro_value: 20 },
     ];
     const services = [
       [1, "Coaching individuel", "Une heure en tête-à-tête pour travailler vos points faibles : technique, placement, lecture du jeu.", 60, 6000, 1, "Tous niveaux", "#1F6FEB"],
@@ -77,13 +77,14 @@
       ["Camille", "Durand", "P250"], ["Thomas", "Morel", "P100"], ["Julien", "Garcia", "P100"], ["Sophie", "Lefebvre", "Débutante"],
       ["Nicolas", "Roux", "P500"], ["Léa", "Fournier", "P25"], ["Mathieu", "Girard", "P250"], ["Inès", "Bonnet", "Débutante"],
       ["Hugo", "Mercier", "P100"], ["Clara", "Lambert", "P25"], ["Antoine", "Faure", "P1000"], ["Manon", "Rousseau", "P100"],
+      ["Yanis", "Chevalier", "P50"], ["Emma", "Blanc", "Débutante"], ["Lucas", "Perrin", "P100"], ["Chloé", "Robin", "P25"],
     ];
     const players = names.map(([first_name, last_name, level], i) => ({
       id: `9a000000-0000-4000-8000-0000000000${P.pad(i + 1)}`, coach_id: COACH_ID, first_name, last_name,
       email: `${first_name.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")}.${last_name.toLowerCase()}@exemple.fr`,
       phone: `06 ${P.pad(10 + i)} ${P.pad(20 + i * 3)} ${P.pad(30 + i * 2)} ${P.pad(40 + i)}`, level,
       notes: i === 0 ? "Travaille la défense derrière la vitre. Objectif P500 cette saison." : null,
-      created_at: new Date(now.getTime() - (60 - i * 4) * 864e5).toISOString(),
+      created_at: new Date(now.getTime() - Math.max(1, 400 - Math.max(0, i - 1) * 28) * 864e5).toISOString(),
     }));
 
     // Générateur pseudo-aléatoire déterministe : la démo est la même pour tout le monde le même jour.
@@ -93,19 +94,23 @@
     const bookings = [];
     const taken = [];
     const free = (s, e) => !taken.some(([a, b]) => s < b && a < e);
-    for (let off = -24; off <= 12; off++) {
+    for (let off = -400; off <= 12; off++) {
       const day = P.addDays(today, off);
       const wd = P.isoWeekday(day);
       for (const r of rules.filter((r) => r.weekday === wd)) {
         const w0 = +P.zonedToUtc(day, r.start_time.slice(0, 5), tz);
         const w1 = +P.zonedToUtc(day, r.end_time.slice(0, 5), tz);
         for (let s = w0; s < w1; s += 30 * 6e4) {
-          if (rnd() > (off < 0 ? 0.32 : off === 0 ? 0.5 : 0.22)) continue;
+          // Activité qui monte doucement sur l'année écoulée (pour les statistiques).
+          const ramp = off < -24 ? 0.16 + 0.14 * (1 + off / 400) : off < 0 ? 0.32 : off === 0 ? 0.5 : 0.22;
+          if (rnd() > ramp) continue;
           const svc = services[Math.floor(rnd() * rnd() * services.length)];
           const e = s + svc.duration_minutes * 6e4;
           if (e > w1 || !free(s, e)) continue;
           taken.push([s, e]);
-          const pl = players[Math.floor(rnd() * players.length)];
+          // Les élèves arrivent au fil de l'année : un nouveau à peu près tous les mois.
+          const known = Math.min(players.length, 2 + Math.floor((off + 400) / 28));
+          const pl = players[Math.floor(rnd() * known)];
           const past = e < now.getTime();
           const status = past ? (rnd() < 0.06 ? "no_show" : "completed") : (off > 1 && rnd() < 0.18 ? "pending" : "confirmed");
           bookings.push({
@@ -114,7 +119,8 @@
             status, payment_status: past && status === "completed" ? (rnd() < 0.85 ? "paid" : "unpaid") : "unpaid",
             price_cents: svc.price_cents, party_size: Math.min(svc.capacity, 1 + Math.floor(rnd() * svc.capacity)),
             player_message: rnd() < 0.2 ? "Je voudrais travailler mon smash par 3." : null, coach_notes: null,
-            source: rnd() < 0.7 ? "online" : "manual", cancel_token: P.uuid(), cancelled_by: null,
+            source: rnd() < 0.7 ? "online" : "manual", cancel_token: P.uuid(), review_token: P.uuid(), cancelled_by: null,
+            review_requested_at: past ? new Date(e + 2 * 36e5).toISOString() : null,
             created_at: new Date(s - (2 + rnd() * 6) * 864e5).toISOString(),
           });
         }
@@ -122,7 +128,7 @@
     }
     // Une réservation annulée pour illustrer le statut.
     const fut = bookings.find((b) => b.status === "confirmed" && new Date(b.starts_at) > now);
-    if (fut) bookings.push({ ...fut, id: P.uuid(), cancel_token: P.uuid(), status: "cancelled", cancelled_by: "player", starts_at: fut.starts_at, player_id: players[5].id });
+    if (fut) bookings.push({ ...fut, id: P.uuid(), cancel_token: P.uuid(), review_token: P.uuid(), status: "cancelled", cancelled_by: "player", starts_at: fut.starts_at, player_id: players[5].id });
 
     // Une absence (tournoi) dans 9 jours.
     const offDay = P.addDays(today, 9);
@@ -138,6 +144,56 @@
       "Analyse vidéo d'un match", "Stage jeunes des vacances",
     ].map((caption, i) => ({ id: `3ed1a000-0000-4000-8000-00000000000${i + 1}`, coach_id: COACH_ID, url: "", caption, visible: true, position: i }));
 
+    // Avis vérifiés laissés après les séances terminées.
+    const COMMENTS = [
+      [5, "Séance très claire, j'ai enfin compris comment sortir de la vitre. Hâte d'être à la prochaine !", "Merci ! On continue sur la sortie de vitre la semaine prochaine."],
+      [5, "Super ambiance, exercices variés et adaptés à mon niveau.", null],
+      [4, "Très bon coach, la séance est passée vite. J'aurais aimé un peu plus de jeu à la fin.", "Bien noté, on finira par 15 minutes de match la prochaine fois."],
+      [5, null, null],
+      [5, "Le travail au filet a tout changé pour notre duo. Merci Lucas !", null],
+      [5, "Pédagogue et exigeant, exactement ce qu'il me fallait avant mon tournoi.", null],
+      [4, "Bonne séance, conseils utiles. Le club était un peu bruyant ce soir-là.", null],
+      [5, null, null],
+      [3, "Séance correcte mais nous avons commencé en retard.", "Désolé pour le retard, le terrain précédent avait débordé. La prochaine sera rallongée."],
+      [5, "Je recommande à tous les débutants, très patient.", null],
+      [5, "Analyse vidéo très complète, avec un plan de travail écrit.", null],
+      [4, null, null],
+    ];
+    const done = bookings.filter((b) => b.status === "completed").sort((a, b) => b.starts_at.localeCompare(a.starts_at));
+    const reviews = [];
+    for (let i = 0, k = 0; i < done.length && k < 34; i += 2, k++) {
+      const b = done[i], pl = players.find((p) => p.id === b.player_id);
+      const [rating, comment, reply] = COMMENTS[k % COMMENTS.length];
+      const at = new Date(+new Date(b.ends_at) + (3 + k % 5) * 36e5).toISOString();
+      reviews.push({
+        id: `4e710000-0000-4000-8000-0000000000${P.pad(k + 1)}`, coach_id: COACH_ID, booking_id: b.id, player_id: pl.id,
+        rating, comment: k < COMMENTS.length ? comment : (comment && k % 3 === 0 ? comment : null),
+        author_name: `${pl.first_name} ${pl.last_name[0]}.`, service_name: b.service_name, session_date: P.localYmd(new Date(b.starts_at), tz),
+        reply: k < COMMENTS.length ? reply : null, replied_at: reply && k < COMMENTS.length ? at : null,
+        reported_at: null, report_reason: null, status: "published", created_at: at, updated_at: at,
+      });
+    }
+
+    // Agenda Google du coach (démo) : quelques rendez-vous perso dans les prochains jours, sur des plages libres.
+    const external_busy = [];
+    for (let off = 1; off <= 12 && external_busy.length < 3; off++) {
+      const day = P.addDays(today, off);
+      const r = rules.find((x) => x.weekday === P.isoWeekday(day));
+      if (!r) continue;
+      for (let s = +P.zonedToUtc(day, r.start_time.slice(0, 5), tz); s + 36e5 <= +P.zonedToUtc(day, r.end_time.slice(0, 5), tz); s += 30 * 6e4) {
+        if (free(s, s + 36e5)) {
+          taken.push([s, s + 36e5]);
+          external_busy.push({ id: external_busy.length + 1, coach_id: COACH_ID, starts_at: new Date(s).toISOString(), ends_at: new Date(s + 36e5).toISOString(), source: "google" });
+          break;
+        }
+      }
+      off += 1;
+    }
+    const calendar_imports = [{
+      coach_id: COACH_ID, ics_url: "https://calendar.google.com/calendar/ical/lucas.ferrand.demo%40gmail.com/private-3f9cdemo/basic.ics",
+      enabled: true, last_sync_at: new Date(now.getTime() - 7 * 6e4).toISOString(), last_error: null, events_count: external_busy.length,
+    }];
+
     // Messages reçus via le formulaire de contact.
     const ago = (h) => new Date(now.getTime() - h * 36e5).toISOString();
     const contact_messages = [
@@ -152,12 +208,12 @@
     }));
 
     return {
-      version: 6, seededOn: today,
+      version: 7, seededOn: today,
       coaches: [coach],
       site_content: [{ coach_id: COACH_ID, theme, content }],
       locations, services, availability_rules: rules, time_off, players,
       bookings: bookings.sort((a, b) => a.starts_at.localeCompare(b.starts_at)),
-      testimonials, media, contact_messages, notifications: [],
+      testimonials, media, contact_messages, notifications: [], reviews, external_busy, calendar_imports,
     };
   }
 

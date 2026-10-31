@@ -54,6 +54,8 @@
       })),
       getBooking: async (token) => unwrap(await sb.rpc("public_get_booking", { p_token: token })),
       cancelBooking: async (token) => unwrap(await sb.rpc("public_cancel_booking", { p_token: token })),
+      getReviewRequest: async (token) => unwrap(await sb.rpc("public_get_review_request", { p_token: token })),
+      submitReview: async (token, rating, comment) => unwrap(await sb.rpc("public_submit_review", { p_token: token, p_rating: rating, p_comment: comment || null })),
       sendMessage: async (slug, m) => unwrap(await sb.rpc("public_send_message", {
         p_slug: slug, p_name: m.name, p_email: m.email, p_phone: m.phone || null, p_subject: m.subject || null,
         p_message: m.message, p_website: m.website || null,
@@ -108,6 +110,18 @@
         return sb.storage.from("coach-media").getPublicUrl(path).data.publicUrl;
       },
       icalUrl: (coach) => CFG.ICAL_FUNCTION_URL ? `${CFG.ICAL_FUNCTION_URL}?token=${coach.ical_token}` : "",
+      // ---- avis
+      replyReview: async (id, reply) => { unwrap(await sb.rpc("coach_reply_review", { p_review_id: id, p_reply: reply || null })); },
+      reportReview: async (id, reason) => { unwrap(await sb.rpc("coach_report_review", { p_review_id: id, p_reason: reason })); },
+      // ---- agenda Google (import)
+      saveCalendarImport: async (row) => unwrap(await sb.from("calendar_imports").upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: "coach_id" }).select().single()),
+      syncCalendar: async (coachId) => {
+        const { data, error } = await sb.functions.invoke("gcal-sync", { body: { coach_id: coachId } });
+        if (error) throw new ApiError("Synchronisation impossible pour le moment. Nouvel essai automatique dans 15 minutes.", "SYNC");
+        const r = (data && data.results && data.results[0]) || null;
+        if (r && !r.ok) throw new ApiError(r.error, "SYNC");
+        return r;
+      },
     };
   }
 
@@ -144,7 +158,8 @@
       return P.computeSlots({
         coach: coachView ? { ...coach, min_notice_hours: 0, max_advance_days: 366 } : coach, service, from, to,
         rules: db.availability_rules.filter((r) => r.coach_id === coach.id),
-        timeOff: db.time_off.filter((t) => t.coach_id === coach.id),
+        // Les rendez-vous importés de l'agenda Google bloquent les créneaux comme une absence.
+        timeOff: db.time_off.filter((t) => t.coach_id === coach.id).concat((db.external_busy || []).filter((t) => t.coach_id === coach.id)),
         bookings: db.bookings.filter((b) => b.coach_id === coach.id),
       });
     }
@@ -171,6 +186,17 @@
       };
     }
 
+    function publicReviews(coachId) {
+      const list = (db.reviews || []).filter((r) => r.coach_id === coachId && r.status === "published");
+      const avg = list.length ? Math.round((list.reduce((a, r) => a + r.rating, 0) / list.length) * 10) / 10 : null;
+      const shown = [...list].sort((a, b) => (a.comment ? 0 : 1) - (b.comment ? 0 : 1) || b.created_at.localeCompare(a.created_at)).slice(0, 30)
+        .sort((a, b) => b.created_at.localeCompare(a.created_at));
+      return {
+        rating: { average: avg, count: list.length },
+        reviews: shown.map((r) => ({ author: r.author_name, rating: r.rating, comment: r.comment, service_name: r.service_name, date: r.session_date, reply: r.reply })),
+      };
+    }
+
     return {
       mode: "demo",
       reset: () => { try { store && store.removeItem(KEY); } catch { /* ignore */ } load(); },
@@ -187,7 +213,47 @@
           testimonials: db.testimonials.filter((t) => t.coach_id === c.id && t.visible).sort((a, b) => a.position - b.position),
           gallery: (db.media || []).filter((m) => m.coach_id === c.id && m.visible).sort((a, b) => a.position - b.position)
             .slice(0, 60).map((m) => ({ id: m.id, url: m.url, caption: m.caption })),
+          ...publicReviews(c.id),
         }));
+      },
+      getReviewRequest: async (token) => {
+        const b = db.bookings.find((x) => x.review_token === token);
+        if (!b) return delay(null);
+        const c = db.coaches.find((x) => x.id === b.coach_id), p = db.players.find((x) => x.id === b.player_id);
+        const r = (db.reviews || []).find((x) => x.booking_id === b.id);
+        const ended = new Date(b.ends_at) <= Date.now(), age = Date.now() - new Date(b.ends_at);
+        const recent = !r || Date.now() - new Date(r.created_at) < 7 * 864e5;
+        const reason = ["cancelled", "no_show"].includes(b.status) ? "NOT_HELD" : !ended ? "TOO_EARLY" : age > 60 * 864e5 ? "TOO_LATE" : !recent ? "ALREADY" : null;
+        return delay(clone({
+          coach: { slug: c.slug, display_name: c.display_name, timezone: c.timezone }, service_name: b.service_name, starts_at: b.starts_at,
+          player_first_name: p ? p.first_name : null, can_review: !reason, reason, review: r ? { rating: r.rating, comment: r.comment } : null,
+        }));
+      },
+      submitReview: async (token, rating, comment) => {
+        const b = db.bookings.find((x) => x.review_token === token);
+        if (!b) throw new ApiError("Lien d'avis introuvable.", "NOT_FOUND");
+        if (!["confirmed", "completed"].includes(b.status)) throw new ApiError("Cette séance n'a pas eu lieu : elle ne peut pas être notée.", "NOT_HELD");
+        if (new Date(b.ends_at) > Date.now()) throw new ApiError("Vous pourrez noter cette séance une fois terminée.", "TOO_EARLY");
+        if (Date.now() - new Date(b.ends_at) > 60 * 864e5) throw new ApiError("Le délai pour noter cette séance est dépassé.", "TOO_LATE");
+        rating = Number(rating);
+        if (!Number.isInteger(rating) || rating < 1 || rating > 5) throw new ApiError("Choisissez une note de 1 à 5.", "INVALID_INPUT");
+        const text = String(comment || "").trim() || null;
+        if (text && text.length > 1000) throw new ApiError("Commentaire trop long (1000 caractères maximum).", "INVALID_INPUT");
+        db.reviews = db.reviews || [];
+        let r = db.reviews.find((x) => x.booking_id === b.id);
+        if (r && Date.now() - new Date(r.created_at) >= 7 * 864e5) throw new ApiError("Vous avez déjà noté cette séance.", "ALREADY");
+        const c = db.coaches.find((x) => x.id === b.coach_id), p = db.players.find((x) => x.id === b.player_id) || {};
+        const now = new Date().toISOString();
+        if (r) Object.assign(r, { rating, comment: text, updated_at: now });
+        else {
+          r = { id: P.uuid(), coach_id: b.coach_id, booking_id: b.id, player_id: b.player_id, rating, comment: text,
+                author_name: `${p.first_name || "Élève"}${p.last_name ? " " + p.last_name[0].toUpperCase() + "." : ""}`,
+                service_name: b.service_name, session_date: P.localYmd(new Date(b.starts_at), c.timezone),
+                reply: null, replied_at: null, reported_at: null, report_reason: null, status: "published", created_at: now, updated_at: now };
+          db.reviews.push(r);
+        }
+        save();
+        return delay({ ok: true, rating });
       },
       getSlots: async (slug, serviceId, from, to) => {
         const c = coachBySlug(slug);
@@ -355,6 +421,33 @@
         fr.readAsDataURL(file);
       }),
       icalUrl: () => "https://exemple.supabase.co/functions/v1/ical?token=lien-prive-de-demo",
+      replyReview: async (id, reply) => {
+        const r = db.reviews.find((x) => x.id === id);
+        const text = String(reply || "").trim() || null;
+        if (text && text.length > 1000) throw new ApiError("Réponse trop longue (1000 caractères maximum).", "INVALID_INPUT");
+        Object.assign(r, { reply: text, replied_at: text ? new Date().toISOString() : null }); save(); return delay();
+      },
+      reportReview: async (id, reason) => {
+        const text = String(reason || "").trim();
+        if (text.length < 5 || text.length > 500) throw new ApiError("Expliquez en quelques mots pourquoi cet avis est abusif.", "INVALID_INPUT");
+        Object.assign(db.reviews.find((x) => x.id === id), { reported_at: new Date().toISOString(), report_reason: text }); save(); return delay();
+      },
+      saveCalendarImport: async (row) => {
+        db.calendar_imports = db.calendar_imports || [];
+        let r = db.calendar_imports.find((x) => x.coach_id === row.coach_id);
+        if (!r) { r = { coach_id: row.coach_id, enabled: true, last_sync_at: null, last_error: null, events_count: 0 }; db.calendar_imports.push(r); }
+        Object.assign(r, clone(row));
+        if (!r.ics_url) { db.external_busy = (db.external_busy || []).filter((x) => x.coach_id !== row.coach_id); Object.assign(r, { events_count: 0, last_sync_at: null, last_error: null }); }
+        save(); return delay(clone(r));
+      },
+      syncCalendar: async (coachId) => {
+        const r = (db.calendar_imports || []).find((x) => x.coach_id === coachId);
+        if (!r || !P.normalizeCalendarUrl(r.ics_url)) throw new ApiError("Adresse non reconnue : utilisez l'adresse secrète iCal de Google Agenda, iCloud ou Outlook.", "SYNC");
+        // Démo : pas d'accès réseau, les rendez-vous d'exemple restent ceux déjà importés.
+        const n = (db.external_busy || []).filter((x) => x.coach_id === coachId).length;
+        Object.assign(r, { last_sync_at: new Date().toISOString(), last_error: null, events_count: n }); save();
+        return delay({ ok: true, events: n });
+      },
     };
   }
 

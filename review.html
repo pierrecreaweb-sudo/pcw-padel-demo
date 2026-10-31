@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Notez votre séance</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/site.css">
+<style>
+  .rate { display: flex; gap: 6px; margin: 6px 0 4px; }
+  .rate button { width: 54px; height: 54px; padding: 0; border: 0; background: none; cursor: pointer; border-radius: 12px; transition: transform .12s; }
+  .rate button:hover { transform: scale(1.08); }
+  .rate button:focus-visible { outline: 3px solid var(--brand-2); }
+  .rate svg { width: 100%; height: 100%; fill: rgba(11, 24, 48, .12); transition: fill .12s; }
+  .rate button.on svg { fill: #F2B300; }
+  .rate-label { min-height: 24px; font-weight: 700; color: var(--brand); margin: 0 0 18px; }
+  .review-form textarea { width: 100%; min-height: 120px; padding: 12px 14px; border-radius: 12px; border: 1.5px solid var(--line); font: inherit; resize: vertical; }
+  .review-form textarea:focus { outline: none; border-color: var(--brand-2); box-shadow: 0 0 0 4px rgba(27, 74, 140, .14); }
+  .count { font-size: 13px; color: var(--muted); text-align: right; margin-top: 4px; }
+  @media (max-width: 380px) { .rate button { width: 46px; height: 46px; } }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar__in">
+    <a class="brand" href="index.html" id="brand"><span class="brand__mark" aria-hidden="true"></span><span id="brand-text">VOTRE AVIS</span></a>
+  </div>
+</header>
+<main class="wrap">
+  <div class="manage" id="review" aria-live="polite">
+    <div class="panel"><div class="skeleton"></div><div class="skeleton" style="margin-top:12px;width:60%"></div></div>
+  </div>
+</main>
+<script src="assets/config.js"></script>
+<script src="assets/core.js"></script>
+<script src="assets/demo-data.js"></script>
+<script src="assets/api.js"></script>
+<script>
+// Page « Notez votre séance » : lien reçu par email après la séance (review.html?t=<jeton>&n=<note>).
+(function () {
+  "use strict";
+  const P = window.PCW, esc = P.esc;
+  const el = document.getElementById("review");
+  const params = new URLSearchParams(location.search);
+  const token = params.get("t") || "";
+  let slug = params.get("c") || "";
+  const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>';
+  const WORDS = ["", "Décevante", "Moyenne", "Bien", "Très bien", "Excellente"];
+  let api, req = null, rating = Math.min(5, Math.max(0, parseInt(params.get("n") || "0", 10) || 0)), comment = "";
+  let error = "", busy = false, done = false;
+  const home = () => `index.html${slug ? "?c=" + encodeURIComponent(slug) : ""}`;
+
+  function applyTheme(theme) {
+    const s = document.documentElement.style;
+    if (P.hexToRgb(theme.primary)) { s.setProperty("--brand", theme.primary); s.setProperty("--brand-2", P.mix(theme.primary, "#4F8EF7", 0.35)); }
+    if (P.hexToRgb(theme.accent)) s.setProperty("--ball", theme.accent);
+    if (theme.logo_text) document.getElementById("brand-text").textContent = theme.logo_text;
+  }
+
+  function render() {
+    document.getElementById("brand").href = home();
+    if (!req) {
+      el.innerHTML = `<div class="panel"><h1 class="h3">Lien introuvable</h1>
+        <p class="muted">Ce lien d'avis n'est plus valide. Vérifiez qu'il est complet ou contactez votre coach.</p>
+        <a class="btn btn--brand" href="${home()}">Aller sur le site</a></div>`;
+      return;
+    }
+    const coach = req.coach.display_name, tz = req.coach.timezone;
+    const when = `${P.fmtDate(req.starts_at, tz)} à ${P.fmtTime(req.starts_at, tz)}`;
+    if (done) {
+      el.innerHTML = `<div class="panel" style="text-align:center">
+        <div class="booked__icon" aria-hidden="true">✓</div>
+        <h1 class="h3">Merci ${esc(req.player_first_name || "")} !</h1>
+        <p class="muted">Votre avis est publié sur le site de ${esc(coach)}. ${rating >= 4 ? "Il aidera d'autres joueurs à se lancer." : "Il l'aidera à faire encore mieux."}</p>
+        <p class="muted" style="font-size:14px">Vous pouvez le modifier pendant 7 jours avec le même lien.</p>
+        <div class="actions" style="justify-content:center"><a class="btn btn--ball" href="${home()}#reserver">Réserver ma prochaine séance</a></div></div>`;
+      return;
+    }
+    if (!req.can_review) {
+      const msg = {
+        TOO_EARLY: "Vous pourrez noter cette séance une fois qu'elle aura eu lieu.",
+        NOT_HELD: "Cette séance a été annulée : elle ne peut pas être notée.",
+        TOO_LATE: "Le délai pour noter cette séance (60 jours) est dépassé.",
+        ALREADY: "Vous avez déjà noté cette séance. Merci !",
+      }[req.reason] || "Cette séance ne peut pas être notée.";
+      el.innerHTML = `<div class="panel"><p class="eyebrow eyebrow--brand">${esc(req.service_name)}</p>
+        <h1 class="h3">${esc(msg)}</h1><p class="muted">${esc(P.cap(when))} avec ${esc(coach)}</p>
+        <div class="actions"><a class="btn btn--brand" href="${home()}">Aller sur le site</a></div></div>`;
+      return;
+    }
+    el.innerHTML = `<div class="panel review-form">
+      <p class="eyebrow eyebrow--brand">Votre avis</p>
+      <h1 class="h2" style="font-size:30px">Comment s'est passée votre séance avec ${esc(coach)} ?</h1>
+      <p class="muted" style="margin-top:-6px">${esc(req.service_name)} · ${esc(P.cap(when))}</p>
+      <div class="rate" role="radiogroup" aria-label="Votre note sur 5">
+        ${[1, 2, 3, 4, 5].map((n) => `<button type="button" role="radio" aria-checked="${n === rating}" aria-label="${n} sur 5 : ${WORDS[n]}" data-n="${n}" class="${n <= rating ? "on" : ""}">${STAR}</button>`).join("")}
+      </div>
+      <p class="rate-label" id="rate-label">${rating ? `${rating}/5 · ${WORDS[rating]}` : "Touchez une étoile"}</p>
+      <label class="field"><span>Un commentaire ? <small class="muted">(facultatif, visible sur le site)</small></span>
+        <textarea id="comment" maxlength="1000" placeholder="Ce que vous avez travaillé, ce qui vous a plu…">${esc(comment)}</textarea></label>
+      <div class="count"><span id="count">${comment.length}</span> / 1000</div>
+      ${error ? `<p class="alert alert--err" role="alert">${esc(error)}</p>` : ""}
+      <div class="actions"><button type="button" class="btn btn--ball" id="send" ${busy ? "disabled" : ""}>${busy ? "Envoi…" : "Publier mon avis"}</button></div>
+      <p class="muted" style="font-size:13px;margin:14px 0 0">Votre prénom et l'initiale de votre nom s'affichent avec l'avis. ${esc(coach)} peut y répondre publiquement mais ne peut pas le modifier.</p>
+    </div>`;
+  }
+
+  el.addEventListener("click", async (e) => {
+    const star = e.target.closest("[data-n]");
+    if (star) { rating = +star.dataset.n; error = ""; comment = (document.getElementById("comment") || {}).value || comment; render(); return; }
+    if (e.target.id === "send") {
+      comment = document.getElementById("comment").value;
+      if (!rating) { error = "Choisissez une note de 1 à 5 étoiles."; render(); return; }
+      busy = true; render();
+      try { await api.submitReview(token, rating, comment.trim()); done = true; error = ""; }
+      catch (err) { error = err.message; }
+      busy = false; render();
+    }
+  });
+  el.addEventListener("input", (e) => {
+    if (e.target.id === "comment") { comment = e.target.value; document.getElementById("count").textContent = comment.length; }
+  });
+
+  (async function init() {
+    try {
+      api = await P.backend();
+      req = token ? await api.getReviewRequest(token) : null;
+      if (req && req.review) { rating = rating || req.review.rating; comment = req.review.comment || ""; }
+      if (req) {
+        slug = slug || req.coach.slug;
+        api.getSite(req.coach.slug).then((site) => { if (site) { applyTheme(site.theme || {}); } }).catch(() => {});
+        document.title = `Notez votre séance · ${req.coach.display_name}`;
+      }
+    } catch (e) { req = null; }
+    render();
+  })();
+})();
+</script>
+</body>
+</html>

@@ -193,8 +193,19 @@
     return L > 0.179 ? "#0B1830" : "#FFFFFF";
   }
 
+  // Adresse d'agenda à importer : Google, iCloud ou Outlook uniquement (même règle que le serveur).
+  const CAL_HOSTS = [/^calendar\.google\.com$/, /^p\d+-caldav\.icloud\.com$/, /^outlook\.(office365|live)\.com$/, /^outlook\.office\.com$/];
+  function normalizeCalendarUrl(raw) {
+    let s = String(raw || "").trim();
+    if (/^webcals?:\/\//i.test(s)) s = s.replace(/^webcals?:\/\//i, "https://");
+    let u;
+    try { u = new URL(s); } catch { return null; }
+    if (u.protocol !== "https:" || !CAL_HOSTS.some((re) => re.test(u.hostname))) return null;
+    return u.toString();
+  }
+
   const api = {
-    FONTS, fontsUrl, hexToRgb, mix, readableOn,
+    FONTS, fontsUrl, hexToRgb, mix, readableOn, normalizeCalendarUrl,
     pad, tzParts, zonedToUtc, localYmd, localHm, addDays, isoWeekday, diffDays, mondayOf,
     DAYS, DAYS_SHORT, MONTHS, cap, fmtTime, hmLabel, fmtYmd, fmtDate, fmtPrice, fmtDuration,
     computeSlots, overlaps, esc, uuid, storage, googleCalendarUrl,

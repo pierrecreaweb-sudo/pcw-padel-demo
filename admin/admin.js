@@ -9,6 +9,7 @@
   const S = {
     api: null, user: null, coaches: [], coach: null, loading: false,
     services: [], locations: [], rules: [], media: [], messages: [], timeOff: [], players: [], testimonials: [], site: null, bookings: [],
+    reviews: [], busy: [], calImport: null, allBookings: null, allLoadedAt: 0,
     isAdmin: false,
     ui: { resFilter: "upcoming", resQuery: "", playerQuery: "", weekStart: null },
     recovery: false,
@@ -32,6 +33,9 @@
     left: '<path d="m15 6-6 6 6 6"/>', right: '<path d="m9 6 6 6-6 6"/>',
     plus: '<path d="M12 5v14M5 12h14"/>', ext: '<path d="M14 4h6v6M20 4l-9 9M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/>',
     out: '<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 16l-4-4 4-4M6 12h11"/>',
+    chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+    star: '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>',
+    share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/>',
   };
   const icon = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
 
@@ -96,6 +100,9 @@
       S.api.list("contact_messages", id, "created_at").catch(() => []),
     ]);
     Object.assign(S, { services, locations, rules, timeOff, players, testimonials, site, media, messages: messages.reverse() });
+    S.reviews = await S.api.list("reviews", id, "created_at").catch(() => []);
+    await reloadCalendar();
+    S.allBookings = null;
     await loadBookings();
   }
   async function loadBookings() {
@@ -111,6 +118,9 @@
     reservations: { label: "Réservations", icon: "list", render: viewReservations },
     agenda: { label: "Agenda", icon: "cal", render: viewAgenda },
     joueurs: { label: "Joueurs", icon: "users", render: viewPlayers },
+    statistiques: { label: "Statistiques", short: "Stats", icon: "chart", render: viewStats },
+    avis: { label: "Avis", icon: "star", render: viewReviews },
+    partager: { label: "Partager ma page", short: "Partager", icon: "share", render: viewShare },
     messages: { label: "Messages", icon: "mail", render: viewMessages },
     prestations: { label: "Prestations et lieux", short: "Prestations", icon: "tag", render: viewServices },
     "mon-site": { label: "Mon site", icon: "brush", render: viewSite },
@@ -205,7 +215,7 @@
       <nav class="tabbar" aria-label="Menu">
         ${tabKeys.map((k) => `<a class="tab" href="#${k}" ${v === k ? 'aria-current="page"' : ""}>${icon(VIEWS[k].icon)}<span>${VIEWS[k].short || VIEWS[k].label}</span>
           ${k === "reservations" && pending ? `<span class="badge">${pending}</span>` : ""}</a>`).join("")}
-        <button type="button" class="tab" data-action="more" ${["messages", "prestations", "mon-site", "reglages"].includes(v) ? 'aria-current="page"' : ""}>${icon("more")}<span>Plus</span>${unread ? `<span class="badge">${unread}</span>` : ""}</button>
+        <button type="button" class="tab" data-action="more" ${["statistiques", "avis", "partager", "messages", "prestations", "mon-site", "reglages"].includes(v) ? 'aria-current="page"' : ""}>${icon("more")}<span>Plus</span>${unread ? `<span class="badge">${unread}</span>` : ""}</button>
       </nav>
     </div>`;
     const page = document.getElementById("page");
@@ -371,10 +381,14 @@
             <dt>Nouveaux joueurs</dt><dd class="num">${newPlayers}</dd>
             <dt>Joueurs suivis</dt><dd class="num">${S.players.length}</dd>
           </dl></section>
-          <section class="card"><h2>Mon site</h2>
-            <p class="muted" style="margin:0 0 12px">Vos joueurs réservent sur votre site. Partagez ce lien sur Instagram et WhatsApp.</p>
-            <div class="btn-row"><a class="btn" href="../index.html?c=${encodeURIComponent(S.coach.slug)}" target="_blank" rel="noopener">${icon("ext")} Ouvrir mon site</a>
-            <button type="button" class="btn" data-action="copy-site">Copier le lien</button></div>
+          ${(() => { const r = ratingSummary(); return `<a class="card score-mini" href="#avis"><span class="kpi__label">Ma note de coaching</span>
+            <span class="score-mini__row"><b class="num">${r.label}</b><span class="muted">/ 5</span>${r.count ? stars(r.avg, 16) : ""}</span>
+            <span class="muted" style="font-size:13px">${r.count ? `${r.count} avis vérifiés` : "Pas encore d'avis"}${S.reviews.some((x) => !x.reply && x.rating <= 3 && x.status === "published") ? " · un avis attend votre réponse" : ""}</span></a>`; })()}
+          <section class="card"><h2>Partager ma page</h2>
+            <p class="muted" style="margin:0 0 12px">Envoyez votre lien de réservation à vos élèves ou affichez votre QR code au club.</p>
+            <div class="btn-row"><a class="btn btn--primary" href="#partager">${icon("share")} Partager</a>
+            <button type="button" class="btn" data-action="copy-booking-link">Copier le lien</button>
+            <a class="btn" href="../index.html?c=${encodeURIComponent(S.coach.slug)}" target="_blank" rel="noopener">${icon("ext")} Voir mon site</a></div>
           </section>
         </div>
       </div>`;
@@ -623,6 +637,12 @@
         const bottom = e >= dayEnd ? y(h1, 0) : (() => { const pe = P.tzParts(new Date(e), tz()); return y(pe.h, pe.mi); })();
         return `<div class="cal__off" style="top:${top}px;height:${Math.max(18, Math.min(bottom, y(h1, 0)) - top)}px">${esc(o.reason || "Indisponible")}</div>`;
       }).join("");
+      const busy = S.busy.filter((o) => +new Date(o.starts_at) < dayEnd && +new Date(o.ends_at) > dayStart).map((o) => {
+        const s = Math.max(+new Date(o.starts_at), dayStart), e = Math.min(+new Date(o.ends_at), dayEnd);
+        const ps = P.tzParts(new Date(s), tz()), pe = P.tzParts(new Date(e), tz());
+        const top = Math.max(0, y(ps.h, ps.mi)), bottom = e >= dayEnd ? y(h1, 0) : y(pe.h, pe.mi);
+        return `<div class="cal__busy" style="top:${top}px;height:${Math.max(18, Math.min(bottom, y(h1, 0)) - top)}px" title="Rendez-vous de votre agenda Google">Occupé · Google</div>`;
+      }).join("");
       const evs = weekB.filter((b) => dayOf(b.starts_at) === d).map((b) => {
         const ps = P.tzParts(new Date(b.starts_at), tz());
         const top = y(ps.h, ps.mi), h = minutes(b) / 60 * HH;
@@ -633,7 +653,7 @@
       }).join("");
       let nowLine = "";
       if (d === t) { const pn = P.tzParts(new Date(), tz()); if (pn.h >= h0 && pn.h < h1) nowLine = `<div class="cal__now" style="top:${y(pn.h, pn.mi)}px"></div>`; }
-      return `<div class="cal__col" data-day="${d}">${avail}${offs}${evs}${nowLine}</div>`;
+      return `<div class="cal__col" data-day="${d}">${avail}${offs}${busy}${evs}${nowLine}</div>`;
     }).join("");
 
     const hours = Array.from({ length: h1 - h0 }, (_, i) => `<div class="cal__hour">${h0 + i}h</div>`).join("");
@@ -651,6 +671,7 @@
       </div></div>
       <div class="legend"><span><i style="background:var(--slot-bg)"></i>Disponible à la réservation</span>
         <span><i style="background:repeating-linear-gradient(45deg,var(--hatch) 0 4px,transparent 4px 8px);border:1px solid var(--muted)"></i>Absence</span>
+        ${S.calImport && S.calImport.ics_url ? `<span><i class="legend-busy"></i>Agenda Google</span>` : `<span><a href="#reglages" data-action="goto-google">Connecter Google Agenda</a></span>`}
         <span><i style="border:2px dashed var(--warn)"></i>À valider</span>
         ${S.services.filter((s) => s.active).map((s) => `<span><i style="background:${esc(s.color || "#5A6780")}"></i>${esc(s.name)}</span>`).join("")}</div>
 
@@ -730,7 +751,7 @@
           </div>`).join("") || `<div class="empty">Aucune prestation. Ajoutez-en une pour ouvrir les réservations.</div>`}</div></section>
         <section class="card"><h2>Lieux <button class="btn btn--sm" data-action="edit-location">${icon("plus")} Ajouter</button></h2>
           <div class="rows">${S.locations.map((l) => `<button type="button" class="row" style="grid-template-columns:minmax(0,1fr) auto" data-action="edit-location" data-id="${l.id}">
-            <span class="row__main"><span class="row__title">${esc(l.name)}</span><span class="row__sub">${esc(l.address || "Adresse non renseignée")}</span></span>
+            <span class="row__main"><span class="row__title">${esc(l.name)}</span><span class="row__sub">${esc(l.address || "Adresse non renseignée")}</span><span class="row__sub">Rétrocession : ${esc(retroLabel(l))}</span></span>
             <span class="muted">Modifier</span></button>`).join("") || `<div class="empty">Ajoutez les clubs où vous donnez vos cours.</div>`}</div></section>
       </div>`;
   }
@@ -792,7 +813,18 @@
         <div class="form-grid">
         <label class="field full"><span>Nom du club</span><input type="text" id="lo-name" maxlength="80" value="${esc(l.name)}" placeholder="Padel Club Garonne"></label>
         <label class="field full"><span>Adresse</span><input type="text" id="lo-addr" maxlength="160" value="${esc(l.address || "")}"></label>
-        <label class="field full"><span>Lien Google Maps <small>(facultatif)</small></span><input type="url" id="lo-maps" value="${esc(l.maps_url || "")}" placeholder="https://maps.app.goo.gl/…"></label></div>`,
+        <label class="field full"><span>Lien Google Maps <small>(facultatif)</small></span><input type="url" id="lo-maps" value="${esc(l.maps_url || "")}" placeholder="https://maps.app.goo.gl/…"></label>
+        <fieldset class="full retro-box"><legend>Rétrocession au club</legend>
+          <p class="muted" style="margin:0 0 10px;font-size:13px">Ce que le club vous facture pour ses terrains. Sert au calcul de vos statistiques, jamais affiché aux élèves.</p>
+          <div class="form-grid">
+          <label class="field"><span>Mode</span><select id="lo-rmode">${Object.entries(RETRO).map(([k, v]) => `<option value="${k}" ${(l.retro_mode || "none") === k ? "selected" : ""}>${v}</option>`).join("")}</select></label>
+          <label class="field" id="lo-rval-wrap" ${(l.retro_mode || "none") === "none" ? "hidden" : ""}><span id="lo-rval-label">Montant</span>
+            <input type="number" id="lo-rval" min="0" step="0.5" inputmode="decimal" value="${esc(l.retro_value || "")}"></label></div></fieldset></div>`,
+      onMount: (el) => {
+        const sel = el.querySelector("#lo-rmode"), wrap = el.querySelector("#lo-rval-wrap"), lab = el.querySelector("#lo-rval-label");
+        const upd = () => { wrap.hidden = sel.value === "none"; lab.textContent = { percent: "Pourcentage (%)", per_hour: "Montant par heure (€)", per_session: "Montant par séance (€)", monthly: "Forfait par mois (€)" }[sel.value] || "Montant"; };
+        sel.addEventListener("change", upd); upd();
+      },
       foot: `<button class="btn btn--primary" data-action="save-location" data-id="${id || ""}">Enregistrer</button>${id ? `<button class="btn btn--danger" data-action="ask-delete-location" data-id="${id}">Supprimer</button>` : ""}`,
     });
   }
@@ -801,7 +833,10 @@
     if (!name) return toast("Indiquez le nom du lieu.");
     const maps = document.getElementById("lo-maps").value.trim();
     if (maps && !/^https:\/\//.test(maps)) return toast("Le lien Maps doit commencer par https://");
-    const row = { name, address: document.getElementById("lo-addr").value.trim() || null, maps_url: maps || null };
+    const rmode = document.getElementById("lo-rmode").value, rval = rmode === "none" ? 0 : Number(String(document.getElementById("lo-rval").value).replace(",", "."));
+    if (rmode !== "none" && (!(rval >= 0) || !isFinite(rval))) return toast("Indiquez le montant de la rétrocession.");
+    if (rmode === "percent" && rval > 100) return toast("Le pourcentage ne peut pas dépasser 100.");
+    const row = { name, address: document.getElementById("lo-addr").value.trim() || null, maps_url: maps || null, retro_mode: rmode, retro_value: rval };
     try {
       if (id) { const r = await S.api.update("locations", id, row); S.locations[S.locations.findIndex((x) => x.id === id)] = r; }
       else { S.locations.push(await S.api.insert("locations", { ...row, coach_id: S.coach.id, position: S.locations.length })); }
@@ -1177,15 +1212,7 @@
             <label class="field"><span>Email qui reçoit les nouvelles réservations</span><input type="email" id="s-notify" value="${esc(c.notify_email || "")}"></label>
             <p class="muted" style="margin:0;font-size:13px">Vos joueurs reçoivent automatiquement : confirmation avec fichier agenda, rappel la veille, et un email si vous déplacez ou annulez.</p>
             <div><button class="btn" type="submit">Enregistrer</button></div></form></section>
-          <section class="card"><h2>Synchroniser mon agenda</h2>
-            <p class="muted" style="margin:0 0 10px">Retrouvez vos séances dans Google Agenda ou le Calendrier de l'iPhone, mises à jour automatiquement.</p>
-            ${ical ? `<div class="field"><span>Lien privé (ne le partagez pas)</span><input type="text" id="ical-url" readonly value="${esc(ical)}"></div>
-              <div class="btn-row" style="margin-top:8px"><button class="btn btn--sm" data-action="copy" data-target="ical-url">Copier le lien</button></div>
-              <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">Comment l'ajouter ?</summary>
-              <p style="margin:8px 0 0;font-size:14px"><b>Google Agenda</b> (sur ordinateur) : Autres agendas, +, À partir de l'URL, collez le lien.<br>
-              <b>iPhone</b> : Réglages, Calendrier, Comptes, Ajouter un compte, Autre, Ajouter un calendrier avec abonnement, collez le lien.</p></details>`
-              : `<p class="muted">Lien disponible une fois le service d'agenda activé par Pierre Créa Web.</p>`}
-          </section>
+          ${calendarCard()}
           <section class="card"><h2>Mon site</h2>
             <div class="field"><span>Adresse de votre site</span><input type="text" id="site-url" readonly value="${esc(c.custom_domain ? "https://" + c.custom_domain : siteUrl)}"></div>
             <div class="btn-row" style="margin-top:8px"><button class="btn btn--sm" data-action="copy" data-target="site-url">Copier</button>
@@ -1209,6 +1236,8 @@
       </div>`;
   }
   AFTER.reglages = (page) => {
+    bindCalForm(page);
+    if (S.ui.scrollGoogle) { S.ui.scrollGoogle = false; const g = page.querySelector("#google"); if (g) g.scrollIntoView({ block: "start" }); }
     page.querySelector("#rules-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const g = (id) => page.querySelector("#" + id).value;
@@ -1249,6 +1278,463 @@
     });
   };
 
+  // ============================================================ partager ===
+  // Lien de la page de réservation du coach : son domaine s'il en a un, sinon le site modèle.
+  function bookingUrl() {
+    const c = S.coach;
+    if (c.custom_domain) return `https://${c.custom_domain}/#reserver`;
+    return new URL(`../?c=${encodeURIComponent(c.slug)}#reserver`, location.href).href;
+  }
+  const brandColor = () => {
+    const p = S.site && S.site.theme && S.site.theme.primary;
+    // QR lisible : couleur foncée uniquement (sinon noir).
+    return P.hexToRgb(p) && P.readableOn(p) === "#FFFFFF" ? p : "#0F1B30";
+  };
+  const SHARE_TEMPLATES = {
+    presentation: (n, url) => `Bonjour ! Vous pouvez maintenant réserver vos cours de padel avec moi directement en ligne, 24 h/24 : choisissez votre séance et votre créneau en 1 minute.\n${url}\nÀ bientôt sur le terrain ! ${n}`,
+    creneaux: (n, url) => `Il me reste des créneaux de coaching cette semaine. Réservez le vôtre ici, c'est confirmé tout de suite :\n${url}`,
+    apres: (n, url) => `Merci pour la séance ! Pour réserver la prochaine, tout se passe ici :\n${url}\nVotre avis m'aide beaucoup si vous avez une minute pour le laisser après la séance.`,
+  };
+  function qrSvg(text, color, size = 240) {
+    const qr = window.qrcode(0, "M");
+    qr.addData(text);
+    qr.make();
+    const n = qr.getModuleCount(), q = 4, total = n + q * 2;
+    let d = "";
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c + q} ${r + q}h1v1h-1z`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${size}" height="${size}" shape-rendering="crispEdges" role="img" aria-label="QR code vers votre page de réservation">
+      <rect width="${total}" height="${total}" fill="#FFFFFF"/><path d="${d}" fill="${esc(color)}"/></svg>`;
+  }
+  function qrCanvas(text, color, px) {
+    const qr = window.qrcode(0, "M");
+    qr.addData(text); qr.make();
+    const n = qr.getModuleCount(), q = 4, cell = Math.floor(px / (n + q * 2));
+    const cv = document.createElement("canvas");
+    cv.width = cv.height = cell * (n + q * 2);
+    const g = cv.getContext("2d");
+    g.fillStyle = "#FFFFFF"; g.fillRect(0, 0, cv.width, cv.height);
+    g.fillStyle = color;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) g.fillRect((c + q) * cell, (r + q) * cell, cell, cell);
+    return cv;
+  }
+  function viewShare() {
+    const url = bookingUrl(), name = S.coach.display_name;
+    const tpl = S.ui.shareTpl || "presentation";
+    const msg = S.ui.shareMsg != null ? S.ui.shareMsg : SHARE_TEMPLATES[tpl](name.split(" ")[0], url);
+    return `<div class="page__head"><div><h1>Partager ma page</h1><p>Envoyez votre lien de réservation à vos élèves, ou affichez votre QR code au club.</p></div></div>
+      <div class="grid grid--main">
+        <div class="grid">
+          <section class="card"><h2>Mon lien de réservation</h2>
+            <div class="share-link"><input type="text" id="share-url" readonly value="${esc(url)}" aria-label="Lien de réservation">
+              <button type="button" class="btn" data-action="copy" data-target="share-url">Copier</button></div>
+          </section>
+          <section class="card"><h2>Message à envoyer</h2>
+            <div class="seg" role="group" aria-label="Modèle de message" style="margin-bottom:10px">
+              <button type="button" data-action="share-tpl" data-tpl="presentation" aria-pressed="${tpl === "presentation"}">Présentation</button>
+              <button type="button" data-action="share-tpl" data-tpl="creneaux" aria-pressed="${tpl === "creneaux"}">Créneaux libres</button>
+              <button type="button" data-action="share-tpl" data-tpl="apres" aria-pressed="${tpl === "apres"}">Après une séance</button></div>
+            <label class="field"><span>Modifiable avant l'envoi</span><textarea id="share-msg" rows="5">${esc(msg)}</textarea></label>
+            <div class="share-actions">
+              ${navigator.share ? `<button type="button" class="btn btn--primary" data-action="share-native">Partager…</button>` : ""}
+              <button type="button" class="btn share-wa" data-action="share-wa">WhatsApp</button>
+              <button type="button" class="btn" data-action="share-sms">SMS</button>
+              <button type="button" class="btn" data-action="share-mail">Email</button>
+              <button type="button" class="btn" data-action="share-copy-msg">Copier le message</button>
+            </div>
+            <p class="muted" style="margin:10px 0 0;font-size:13px">Astuce : mettez le lien dans la bio de votre Instagram et dans votre statut WhatsApp.</p>
+          </section>
+        </div>
+        <section class="card share-qr"><h2>QR code</h2>
+          <div class="share-qr__code" id="share-qr">${window.qrcode ? qrSvg(url, brandColor()) : ""}</div>
+          <p class="muted" style="margin:0;font-size:13px;text-align:center">Vos élèves le scannent avec l'appareil photo de leur téléphone et arrivent directement sur la réservation.</p>
+          <div class="btn-row" style="justify-content:center">
+            <button type="button" class="btn btn--dark" data-action="qr-png">Télécharger le QR code</button>
+            <button type="button" class="btn" data-action="story-png">Image pour story Instagram</button>
+            <button type="button" class="btn" data-action="poster-print">Imprimer une affiche</button>
+          </div>
+        </section>
+      </div>`;
+  }
+  AFTER.partager = (page) => {
+    const ta = page.querySelector("#share-msg");
+    ta.addEventListener("input", () => { S.ui.shareMsg = ta.value; });
+  };
+  const shareText = () => (document.getElementById("share-msg") || {}).value || bookingUrl();
+  async function saveBlob(blob, filename, shareTitle) {
+    const file = new File([blob], filename, { type: blob.type });
+    if (navigator.canShare && navigator.canShare({ files: [file] }) && window.matchMedia("(pointer: coarse)").matches) {
+      try { await navigator.share({ files: [file], title: shareTitle }); return; } catch (e) { if (e && e.name === "AbortError") return; }
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast("Image enregistrée");
+  }
+  function wrapText(g, text, maxW) {
+    const words = text.split(" "), lines = [];
+    let line = "";
+    for (const w of words) { const t = line ? line + " " + w : w; if (g.measureText(t).width > maxW && line) { lines.push(line); line = w; } else line = t; }
+    if (line) lines.push(line);
+    return lines;
+  }
+  async function storyImage() {
+    const th = (S.site && S.site.theme) || {};
+    const bg = P.hexToRgb(th.primary) ? th.primary : "#0E2A52", accent = P.hexToRgb(th.accent) ? th.accent : "#E4F55B";
+    const on = P.readableOn(bg);
+    const W = 1080, H = 1920, cv = document.createElement("canvas");
+    cv.width = W; cv.height = H;
+    const g = cv.getContext("2d");
+    try { await document.fonts.ready; } catch { /* polices facultatives */ }
+    const disp = `"${th.font_display || "Archivo"}", "Arial Narrow", sans-serif`, body = `"${th.font_body || "Hanken Grotesk"}", sans-serif`;
+    g.fillStyle = bg; g.fillRect(0, 0, W, H);
+    // Lignes de court en fond.
+    g.strokeStyle = on === "#FFFFFF" ? "rgba(255,255,255,.12)" : "rgba(0,0,0,.08)"; g.lineWidth = 6;
+    g.strokeRect(90, 120, W - 180, H - 240); g.beginPath(); g.moveTo(90, H / 2); g.lineTo(W - 90, H / 2); g.moveTo(W / 2, 120); g.lineTo(W / 2, H - 120); g.stroke();
+    g.fillStyle = accent; g.beginPath(); g.arc(W / 2, 300, 46, 0, Math.PI * 2); g.fill();
+    g.textAlign = "center"; g.fillStyle = on;
+    g.font = `800 52px ${body}`; g.fillText((th.logo_text || S.coach.display_name).toUpperCase(), W / 2, 450);
+    g.font = `900 112px ${disp}`; g.fillStyle = accent;
+    wrapText(g, "RÉSERVEZ VOTRE COURS", W - 200).forEach((l, i) => g.fillText(l, W / 2, 620 + i * 118));
+    const qr = qrCanvas(bookingUrl(), "#0F1B30", 620);
+    const box = qr.width + 60, bx = (W - box) / 2, by = 900;
+    g.fillStyle = "#FFFFFF"; g.beginPath(); g.roundRect ? g.roundRect(bx, by, box, box, 36) : g.rect(bx, by, box, box); g.fill();
+    g.drawImage(qr, bx + 30, by + 30);
+    g.fillStyle = on; g.font = `700 46px ${body}`;
+    g.fillText("Scannez ou touchez le lien", W / 2, by + box + 110);
+    g.font = `500 36px ${body}`; g.globalAlpha = .8;
+    g.fillText(bookingUrl().replace(/^https:\/\//, "").replace(/#reserver$/, ""), W / 2, by + box + 170);
+    g.globalAlpha = 1;
+    return new Promise((res) => cv.toBlob(res, "image/png"));
+  }
+  function printPoster() {
+    let area = document.getElementById("print-area");
+    if (!area) { area = document.createElement("div"); area.id = "print-area"; document.body.appendChild(area); }
+    const th = (S.site && S.site.theme) || {};
+    area.innerHTML = `<div class="poster" style="--p:${esc(brandColor())};--a:${esc(P.hexToRgb(th.accent) ? th.accent : "#E4F55B")}">
+      <div class="poster__brand">${esc((th.logo_text || S.coach.display_name).toUpperCase())}</div>
+      <h1>Réservez votre cours de padel</h1>
+      <p class="poster__sub">En ligne, 24 h/24, confirmation immédiate</p>
+      <div class="poster__qr">${qrSvg(bookingUrl(), "#0F1B30", 420)}</div>
+      <p class="poster__how">Scannez avec l'appareil photo de votre téléphone</p>
+      <p class="poster__url">${esc(bookingUrl().replace(/^https:\/\//, "").replace(/#reserver$/, ""))}</p></div>`;
+    document.body.classList.add("printing");
+    const done = () => { document.body.classList.remove("printing"); window.removeEventListener("afterprint", done); };
+    window.addEventListener("afterprint", done);
+    setTimeout(() => window.print(), 50);
+  }
+
+  // ================================================================ avis ===
+  const stars = (n, size = 16) => `<span class="stars" style="--s:${size}px" role="img" aria-label="${n} sur 5">${[1, 2, 3, 4, 5].map((i) =>
+    `<svg viewBox="0 0 24 24" aria-hidden="true" class="${i <= Math.round(n) ? "on" : ""}"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>`).join("")}</span>`;
+  const published = () => S.reviews.filter((r) => r.status === "published");
+  function ratingSummary() {
+    const list = published();
+    const avg = list.length ? list.reduce((a, r) => a + r.rating, 0) / list.length : null;
+    return { avg, count: list.length, label: avg == null ? "–" : (Math.round(avg * 10) / 10).toLocaleString("fr-FR", { minimumFractionDigits: 1 }) };
+  }
+  function viewReviews() {
+    const sum = ratingSummary(), list = [...S.reviews].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    const f = S.ui.revFilter || "all";
+    const shown = list.filter((r) => f === "all" ? true : f === "noreply" ? !r.reply && r.status === "published" : f === "low" ? r.rating <= 3 : f === "reported" ? !!r.reported_at : true);
+    const dist = [5, 4, 3, 2, 1].map((n) => ({ n, c: published().filter((r) => r.rating === n).length }));
+    const max = Math.max(1, ...dist.map((d) => d.c));
+    const limit = S.ui.revLimit || 10;
+    return `<div class="page__head"><div><h1>Avis des élèves</h1><p>Avis vérifiés : seuls les élèves qui ont eu une séance avec vous peuvent noter.</p></div></div>
+      <div class="grid grid--main reviews-layout">
+        <div class="grid">
+          <div class="toolbar" style="margin:0"><div class="seg" role="group" aria-label="Filtrer les avis">
+            <button type="button" data-action="rev-filter" data-f="all" aria-pressed="${f === "all"}">Tous</button>
+            <button type="button" data-action="rev-filter" data-f="noreply" aria-pressed="${f === "noreply"}">Sans réponse</button>
+            <button type="button" data-action="rev-filter" data-f="low" aria-pressed="${f === "low"}">3 étoiles ou moins</button>
+            <button type="button" data-action="rev-filter" data-f="reported" aria-pressed="${f === "reported"}">Signalés</button></div></div>
+          ${shown.length ? shown.slice(0, limit).map(reviewCard).join("") + (shown.length > limit ? `<button type="button" class="btn btn--block" data-action="rev-more">Voir ${Math.min(10, shown.length - limit)} avis de plus (${shown.length - limit} restants)</button>` : "") : `<section class="card"><div class="empty">${S.reviews.length ? "Aucun avis dans ce filtre." : "Vos premiers avis arriveront après vos prochaines séances : chaque élève reçoit un email 2 h après la fin de sa séance."}</div></section>`}
+        </div>
+        <div class="grid">
+          <section class="card score-card"><h2>Ma note de coaching</h2>
+            <div class="score"><span class="score__value num">${sum.label}</span><span class="score__max">/ 5</span></div>
+            ${sum.count ? stars(sum.avg, 22) : ""}
+            <p class="muted" style="margin:6px 0 14px">${sum.count ? `${sum.count} avis vérifié${sum.count > 1 ? "s" : ""}, depuis le début` : "Pas encore d'avis"}</p>
+            <div class="dist">${dist.map((d) => `<div class="dist__row"><span>${d.n} ★</span><span class="dist__bar"><i style="width:${Math.round(d.c / max * 100)}%"></i></span><span class="num">${d.c}</span></div>`).join("")}</div>
+          </section>
+          <section class="card"><h2>Demande d'avis</h2>
+            <label class="switch"><span><b>Envoyer une demande après chaque séance</b><small>Email à l'élève 2 h après la fin de la séance, avec 5 boutons pour noter en un geste</small></span>
+              <input type="checkbox" id="rev-requests" ${S.coach.review_requests !== false ? "checked" : ""}></label>
+            ${S.api.mode === "demo" ? (() => { const b = (S.bookings || []).filter((x) => x.status === "completed" && x.review_token && !S.reviews.some((r) => r.booking_id === x.id)).pop();
+              return b ? `<a class="btn btn--sm" style="margin-top:12px" href="../review.html?t=${encodeURIComponent(b.review_token)}&c=${encodeURIComponent(S.coach.slug)}&n=5" target="_blank" rel="noopener">${icon("ext")} Voir la page de notation (démo)</a>` : ""; })() : ""}
+            <p class="muted" style="margin:12px 0 0;font-size:13px">Vous pouvez répondre publiquement à chaque avis. Un avis abusif (faux élève, insultes) se signale à Pierre Créa Web, qui vérifie et peut le retirer. Les avis ne peuvent pas être supprimés par le coach : c'est ce qui rend votre note crédible.</p>
+          </section>
+        </div>
+      </div>`;
+  }
+  function reviewCard(r) {
+    const admin = S.isAdmin && S.api.mode !== "demo";
+    return `<article class="card review ${r.status === "removed" ? "review--removed" : ""}">
+      <header class="review__head">${stars(r.rating)}<b>${esc(r.author_name)}</b>
+        <span class="muted">${esc(r.service_name || "")}${r.session_date ? " · " + esc(P.fmtYmd(r.session_date)) : ""}</span>
+        ${r.reported_at ? pill("pending", "Signalé à PCW") : ""}${r.status === "removed" ? pill("cancelled", "Retiré") : ""}</header>
+      ${r.comment ? `<p class="review__text">${esc(r.comment)}</p>` : `<p class="review__text muted">Note sans commentaire.</p>`}
+      ${r.reply ? `<div class="review__reply"><b>Votre réponse</b><p>${esc(r.reply)}</p></div>` : ""}
+      <div class="btn-row">
+        <button type="button" class="btn btn--sm" data-action="review-reply" data-id="${r.id}">${r.reply ? "Modifier ma réponse" : "Répondre"}</button>
+        ${r.reported_at ? "" : `<button type="button" class="btn btn--sm btn--danger" data-action="review-report" data-id="${r.id}">Signaler</button>`}
+        ${admin && r.status === "published" ? `<button type="button" class="btn btn--sm btn--dark" data-action="review-remove" data-id="${r.id}">Retirer (équipe PCW)</button>` : ""}
+      </div></article>`;
+  }
+  AFTER.avis = (page) => {
+    const cb = page.querySelector("#rev-requests");
+    cb.addEventListener("change", async () => {
+      try { Object.assign(S.coach, await S.api.updateCoach(S.coach.id, { review_requests: cb.checked })); toast(cb.checked ? "Demandes d'avis activées" : "Demandes d'avis désactivées"); }
+      catch (e) { toast(errMsg(e)); cb.checked = !cb.checked; }
+    });
+  };
+  function replyDrawer(id) {
+    const r = S.reviews.find((x) => x.id === id);
+    openDrawer({
+      title: "Répondre à l'avis",
+      body: `<div class="review__quote">${stars(r.rating)} <b>${esc(r.author_name)}</b>${r.comment ? `<p>${esc(r.comment)}</p>` : ""}</div>
+        <label class="field"><span>Votre réponse, visible sur votre site</span><textarea id="rv-reply" rows="5" maxlength="1000" placeholder="Merci pour votre retour…">${esc(r.reply || "")}</textarea></label>
+        <p class="muted" style="font-size:13px;margin:0">Une réponse courte et courtoise rassure les futurs élèves, surtout après un avis mitigé.</p>`,
+      foot: `<button class="btn btn--primary" data-action="save-reply" data-id="${id}">Publier la réponse</button>${r.reply ? `<button class="btn btn--danger" data-action="save-reply" data-id="${id}" data-clear="1">Retirer ma réponse</button>` : ""}`,
+    });
+  }
+  function reportDrawer(id) {
+    const r = S.reviews.find((x) => x.id === id);
+    openDrawer({
+      title: "Signaler un avis",
+      body: `<div class="review__quote">${stars(r.rating)} <b>${esc(r.author_name)}</b>${r.comment ? `<p>${esc(r.comment)}</p>` : ""}</div>
+        <label class="field"><span>Pourquoi cet avis est-il abusif ?</span><textarea id="rv-reason" rows="4" maxlength="500" placeholder="Ex. : cet élève n'est jamais venu, propos insultants…"></textarea></label>
+        <p class="muted" style="font-size:13px;margin:0">Pierre Créa Web vérifie chaque signalement. Un avis négatif mais honnête reste publié : vous pouvez y répondre.</p>`,
+      foot: `<button class="btn btn--dark" data-action="save-report" data-id="${id}">Envoyer le signalement</button>`,
+    });
+  }
+
+  // ========================================================= statistiques ===
+  const RETRO = { none: "Aucune", percent: "% du prix", per_hour: "€ par heure", per_session: "€ par séance", monthly: "Forfait mensuel" };
+  function periodRange(kind, anchor) {
+    if (kind === "week") { const s = P.mondayOf(anchor); return { from: s, to: P.addDays(s, 7) }; }
+    const [y, m] = anchor.split("-").map(Number);
+    if (kind === "month") return { from: `${y}-${P.pad(m)}-01`, to: m === 12 ? `${y + 1}-01-01` : `${y}-${P.pad(m + 1)}-01` };
+    return { from: `${y}-01-01`, to: `${y + 1}-01-01` };
+  }
+  function periodLabel(kind, r) {
+    if (kind === "year") return r.from.slice(0, 4);
+    if (kind === "month") { const [y, m] = r.from.split("-").map(Number); return `${P.cap(P.MONTHS[m - 1])} ${y}`; }
+    const end = P.addDays(r.to, -1), [, m1, d1] = r.from.split("-").map(Number), [y2, m2, d2] = end.split("-").map(Number);
+    return m1 === m2 ? `Du ${d1} au ${d2} ${P.MONTHS[m2 - 1]} ${y2}` : `Du ${d1} ${P.MONTHS[m1 - 1]} au ${d2} ${P.MONTHS[m2 - 1]} ${y2}`;
+  }
+  const daysIn = (ymd) => { const [y, m] = ymd.split("-").map(Number); return new Date(Date.UTC(y, m, 0)).getUTCDate(); };
+  function ruleMinutes(day) {
+    const wd = P.isoWeekday(day);
+    const blocks = [...S.timeOff, ...S.busy].map((o) => [+new Date(o.starts_at), +new Date(o.ends_at)]);
+    let total = 0;
+    for (const r of S.rules.filter((x) => x.weekday === wd)) {
+      const a = +P.zonedToUtc(day, r.start_time.slice(0, 5), tz()), b = +P.zonedToUtc(day, r.end_time.slice(0, 5), tz());
+      let m = (b - a) / 6e4;
+      for (const [s, e] of blocks) { const o = Math.min(b, e) - Math.max(a, s); if (o > 0) m -= o / 6e4; }
+      total += Math.max(0, m);
+    }
+    return total;
+  }
+  function computeStats(kind, anchor) {
+    const r = periodRange(kind, anchor), now = Date.now(), t = todayYmd();
+    const all = S.allBookings || [];
+    const inP = all.filter((b) => { const d = dayOf(b.starts_at); return d >= r.from && d < r.to; });
+    const held = inP.filter((b) => b.status === "completed" || (b.status === "confirmed" && +new Date(b.ends_at) < now));
+    const noShow = inP.filter((b) => b.status === "no_show");
+    const upcoming = inP.filter((b) => isActive(b) && +new Date(b.ends_at) >= now);
+    const revenue = sum(held, (b) => b.price_cents) + sum(noShow.filter((b) => b.payment_status === "paid"), (b) => b.price_cents);
+    const paid = sum([...held, ...noShow].filter((b) => b.payment_status === "paid"), (b) => b.price_cents);
+    const planned = sum(upcoming, (b) => b.price_cents);
+
+    // Rétrocession au club : par séance ayant occupé un terrain, plus les forfaits mensuels.
+    const locOf = (b) => locById(b.location_id) || locById((svcById(b.service_id) || {}).location_id) || null;
+    const perClub = new Map();
+    const club = (l) => { const k = l ? l.id : "none"; if (!perClub.has(k)) perClub.set(k, { loc: l, sessions: 0, revenue: 0, retro: 0 }); return perClub.get(k); };
+    for (const b of [...held, ...noShow]) {
+      const l = locOf(b), c = club(l), v = l ? Number(l.retro_value || 0) : 0;
+      const earned = b.status === "no_show" && b.payment_status !== "paid" ? 0 : b.price_cents;
+      c.sessions++; c.revenue += earned;
+      if (!l) continue;
+      // % du prix : sur ce que la séance a rapporté ; à l'heure ou à la séance : le terrain était réservé, il est dû.
+      if (l.retro_mode === "percent") c.retro += Math.round(earned * v / 100);
+      else if (l.retro_mode === "per_hour") c.retro += Math.round(minutes(b) / 60 * v * 100);
+      else if (l.retro_mode === "per_session") c.retro += Math.round(v * 100);
+    }
+    // Forfait mensuel : au prorata des jours de la période déjà commencés (mois en cours compté en entier).
+    for (const l of S.locations.filter((x) => x.retro_mode === "monthly" && Number(x.retro_value) > 0)) {
+      let share = 0;
+      for (let d = r.from; d < r.to && d <= t; d = P.addDays(d, 1)) share += 1 / daysIn(d);
+      if (kind === "month" && r.from <= t) share = 1;
+      if (kind === "year") { share = 0; for (let m = 1; m <= 12; m++) if (`${r.from.slice(0, 4)}-${P.pad(m)}-01` <= t) share++; }
+      club(l).retro += Math.round(Number(l.retro_value) * 100 * share);
+    }
+    const retro = sum([...perClub.values()], (c) => c.retro);
+
+    // Nouveaux élèves : première séance (non annulée) dans la période.
+    const firstOf = new Map();
+    for (const b of all) if (b.player_id && b.status !== "cancelled") {
+      const d = dayOf(b.starts_at);
+      if (!firstOf.has(b.player_id) || d < firstOf.get(b.player_id)) firstOf.set(b.player_id, d);
+    }
+    const newPlayers = [...firstOf.values()].filter((d) => d >= r.from && d < r.to && d <= t).length;
+    const activePlayers = new Set([...held, ...upcoming].map((b) => b.player_id).filter(Boolean)).size;
+
+    // Taux d'occupation : heures réservées / heures ouvertes (disponibilités moins absences et agenda Google).
+    let open = 0;
+    for (let d = r.from; d < r.to; d = P.addDays(d, 1)) open += ruleMinutes(d);
+    const booked = sum(inP.filter((b) => b.status !== "cancelled"), minutes);
+    const fill = open ? Math.min(100, Math.round(booked / open * 100)) : 0;
+
+    // Revenu par jour (semaine, mois) ou par mois (année).
+    const buckets = [];
+    if (kind === "year") for (let m = 1; m <= 12; m++) buckets.push({ key: `${r.from.slice(0, 4)}-${P.pad(m)}`, label: P.MONTHS[m - 1].slice(0, 4).replace(/\.$/, ""), held: 0, planned: 0 });
+    else for (let d = r.from; d < r.to; d = P.addDays(d, 1)) buckets.push({ key: d, label: kind === "week" ? P.DAYS_SHORT[P.isoWeekday(d) - 1] : String(+d.slice(8)), held: 0, planned: 0 });
+    const bk = (b) => buckets.find((x) => x.key === (kind === "year" ? dayOf(b.starts_at).slice(0, 7) : dayOf(b.starts_at)));
+    for (const b of held) { const x = bk(b); if (x) x.held += b.price_cents; }
+    for (const b of upcoming) { const x = bk(b); if (x) x.planned += b.price_cents; }
+
+    return { range: r, revenue, paid, toCollect: revenue - paid, planned, retro, perClub: [...perClub.values()],
+      sessions: held.length, upcoming: upcoming.length, cancelled: inP.filter((b) => b.status === "cancelled").length, noShow: noShow.length,
+      newPlayers, activePlayers, fill, bookedH: booked / 60, openH: open / 60, buckets };
+  }
+  function revenueChart(st, kind) {
+    const narrow = window.innerWidth < 600;
+    const W = narrow ? 340 : 640, H = narrow ? 190 : 200, padL = 8, padB = 22, padT = 18;
+    const max = Math.max(1, ...st.buckets.map((b) => b.held + b.planned));
+    const n = st.buckets.length, slot = (W - padL * 2) / n, bw = Math.max(3, Math.min(34, slot - (n > 20 ? 3 : 8)));
+    const y = (v) => H - padB - (v / max) * (H - padB - padT);
+    const bars = st.buckets.map((b, i) => {
+      const x = padL + i * slot + (slot - bw) / 2;
+      const hh = H - padB - y(b.held), hp = (H - padB - y(b.held + b.planned)) - hh;
+      const tip = `${kind === "year" ? P.cap(P.MONTHS[i]) : P.fmtYmd(b.key)} : ${euros(b.held)} réalisés${b.planned ? `, ${euros(b.planned)} à venir` : ""}`;
+      const showLabel = n <= (narrow ? 7 : 12) || i % (narrow ? 7 : 5) === 0 || i === n - 1;
+      return `<g class="chart__col"><title>${esc(tip)}</title>
+        <rect x="${x - (slot - bw) / 2}" y="${padT}" width="${slot}" height="${H - padB - padT}" fill="transparent"/>
+        ${b.held ? `<rect class="chart__held" x="${x}" y="${y(b.held)}" width="${bw}" height="${Math.max(1, hh)}" rx="${Math.min(4, bw / 2)}"/>` : ""}
+        ${b.planned ? `<rect class="chart__planned" x="${x}" y="${y(b.held + b.planned)}" width="${bw}" height="${Math.max(1, hp - (b.held ? 2 : 0))}" rx="${Math.min(4, bw / 2)}"/>` : ""}
+        ${showLabel ? `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle">${esc(b.label)}</text>` : ""}</g>`;
+    }).join("");
+    return `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Revenu par ${kind === "year" ? "mois" : "jour"}">
+      <line class="chart__grid" x1="${padL}" x2="${W - padL}" y1="${padT}" y2="${padT}"/><text class="chart__max" x="${padL}" y="${padT - 6}">${esc(euros(max))}</text>
+      <line class="chart__base" x1="${padL}" x2="${W - padL}" y1="${H - padB}" y2="${H - padB}"/>${bars}</svg>`;
+  }
+  function viewStats() {
+    const kind = S.ui.statsKind || "month", anchor = S.ui.statsAnchor || todayYmd();
+    if (!S.allBookings) return `<div class="page__head"><div><h1>Statistiques</h1></div></div><section class="card"><div class="empty">Chargement des statistiques…</div></section>`;
+    const st = computeStats(kind, anchor), sum = ratingSummary();
+    const isCurrent = st.range.from <= todayYmd() && todayYmd() < st.range.to;
+    const net = st.revenue - st.retro;
+    const clubs = st.perClub.filter((c) => c.sessions || c.retro).sort((a, b) => b.revenue - a.revenue);
+    return `<div class="page__head"><div><h1>Statistiques</h1><p>${esc(periodLabel(kind, st.range))}</p></div>
+        <div class="week-nav">
+          <div class="seg" role="group" aria-label="Période">
+            <button type="button" data-action="stats-kind" data-kind="week" aria-pressed="${kind === "week"}">Cette semaine</button>
+            <button type="button" data-action="stats-kind" data-kind="month" aria-pressed="${kind === "month"}">Ce mois</button>
+            <button type="button" data-action="stats-kind" data-kind="year" aria-pressed="${kind === "year"}">Cette année</button></div>
+          <button class="icon-btn" data-action="stats-move" data-dir="-1" aria-label="Période précédente">${icon("left")}</button>
+          <button class="icon-btn" data-action="stats-move" data-dir="1" aria-label="Période suivante" ${isCurrent ? "disabled" : ""}>${icon("right")}</button>
+        </div></div>
+      <div class="kpis kpis--stats">
+        <div class="kpi"><span class="kpi__label">${{ week: "Revenu de la semaine", month: "Revenu du mois", year: "Revenu de l'année" }[kind]}</span>
+          <span class="kpi__value num">${euros(st.revenue)}</span>
+          <span class="kpi__sub">${euros(st.paid)} encaissés · ${euros(st.toCollect)} à encaisser${st.planned ? ` · ${euros(st.planned)} à venir` : ""}</span></div>
+        <div class="kpi"><span class="kpi__label">Rétrocession aux clubs</span><span class="kpi__value num">${euros(st.retro)}</span>
+          <span class="kpi__sub">Net pour vous : <b class="num">${euros(net)}</b></span></div>
+        <div class="kpi"><span class="kpi__label">Séances de coaching</span><span class="kpi__value num">${st.sessions}</span>
+          <span class="kpi__sub">${st.upcoming ? `${st.upcoming} à venir · ` : ""}${st.cancelled} annulée${st.cancelled > 1 ? "s" : ""} · ${st.noShow} absence${st.noShow > 1 ? "s" : ""}</span></div>
+        <a class="kpi" href="#avis" style="text-decoration:none;color:inherit"><span class="kpi__label">Note moyenne globale</span>
+          <span class="kpi__value num">${sum.label}<small style="font-size:16px;color:var(--muted)"> / 5</small></span>
+          <span class="kpi__sub">${sum.count ? `${stars(sum.avg, 13)} ${sum.count} avis, depuis le début` : "Pas encore d'avis"}</span></a>
+        <div class="kpi"><span class="kpi__label">Nouveaux élèves</span><span class="kpi__value num">${st.newPlayers}</span>
+          <span class="kpi__sub">première séance sur la période · ${st.activePlayers} élève${st.activePlayers > 1 ? "s" : ""} actif${st.activePlayers > 1 ? "s" : ""}</span></div>
+        <div class="kpi"><span class="kpi__label">Taux d'occupation</span><span class="kpi__value num">${st.fill} %</span>
+          <span class="kpi__sub">${Math.round(st.bookedH).toLocaleString("fr-FR")} h réservées sur ${Math.round(st.openH).toLocaleString("fr-FR")} h ouvertes</span>
+          <span class="meter" aria-hidden="true"><i style="width:${st.fill}%"></i></span></div>
+      </div>
+      <div class="grid grid--main">
+        <section class="card"><h2>Revenu par ${kind === "year" ? "mois" : "jour"}
+          <span class="chart-legend"><span><i class="chart__held"></i>Réalisé</span>${st.planned ? `<span><i class="chart__planned"></i>À venir</span>` : ""}</span></h2>
+          ${st.revenue || st.planned ? revenueChart(st, kind) : `<div class="empty">Aucune séance sur cette période.</div>`}</section>
+        <section class="card"><h2>Par club <small>rétrocession due</small></h2>
+          ${clubs.length ? `<div class="table-wrap"><table class="table table--stats"><thead><tr><th>Club</th><th class="num">Séances</th><th class="num">Revenu</th><th class="num">Dû au club</th></tr></thead><tbody>
+            ${clubs.map((c) => `<tr><td><b>${esc(c.loc ? c.loc.name : "Sans lieu")}</b><br><small class="muted">${c.loc ? esc(retroLabel(c.loc)) : "Pas de rétrocession"}</small></td>
+              <td class="num">${c.sessions}</td><td class="num">${euros(c.revenue)}</td><td class="num"><b>${euros(c.retro)}</b></td></tr>`).join("")}
+            </tbody></table></div>
+            <p class="muted" style="margin:10px 0 0;font-size:13px">Calcul sur les séances terminées et les absences (le terrain était réservé). Réglez le mode de chaque club dans <a href="#prestations">Prestations et lieux</a>.</p>`
+            : `<div class="empty">Aucune séance terminée sur cette période.</div>`}</section>
+      </div>`;
+  }
+  const retroLabel = (l) => {
+    const v = Number(l.retro_value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+    return { none: "Pas de rétrocession", percent: `${v} % du prix de la séance`, per_hour: `${v} € par heure`, per_session: `${v} € par séance`, monthly: `Forfait de ${v} € par mois` }[l.retro_mode || "none"];
+  };
+  AFTER.statistiques = async () => {
+    if (S.allBookings && Date.now() - S.allLoadedAt < 60e3) return;
+    try {
+      S.allBookings = (await S.api.bookings(S.coach.id, {})).map(withPlayer);
+      S.allLoadedAt = Date.now();
+      if (currentView() === "statistiques") render();
+    } catch (e) { toast(errMsg(e)); }
+  };
+
+  // ==================================================== agenda Google ===
+  function calendarCard() {
+    const imp = S.calImport || {};
+    const connected = !!imp.ics_url;
+    const ago = imp.last_sync_at ? Math.max(0, Math.round((Date.now() - new Date(imp.last_sync_at)) / 6e4)) : null;
+    const when = ago == null ? "jamais" : ago < 1 ? "à l'instant" : ago < 60 ? `il y a ${ago} min` : `le ${P.fmtDate(imp.last_sync_at, tz(), "short")} à ${hm(imp.last_sync_at)}`;
+    return `<section class="card" id="google"><h2>Agenda Google <small>dans les deux sens</small></h2>
+      <h3 class="subhead">1. Mes rendez-vous perso bloquent mes créneaux</h3>
+      ${connected && !S.ui.calEdit ? `<div class="sync-status ${imp.last_error ? "sync-status--err" : ""}">
+          <b>${imp.last_error ? "Synchronisation en erreur" : "Agenda connecté"}</b>
+          <span>${imp.last_error ? esc(imp.last_error) : `${imp.events_count || 0} rendez-vous importé${(imp.events_count || 0) > 1 ? "s" : ""} · mise à jour ${esc(when)}`}</span></div>
+        <p class="muted" style="margin:8px 0;font-size:13px">Toutes les 15 minutes, vos rendez-vous Google des prochaines semaines rendent ces horaires indisponibles sur votre site. Seules les heures sont lues : ni titre, ni lieu.</p>
+        <div class="btn-row"><button type="button" class="btn btn--sm btn--dark" data-action="cal-sync">Synchroniser maintenant</button>
+          <button type="button" class="btn btn--sm" data-action="cal-edit">Changer d'adresse</button>
+          <button type="button" class="btn btn--sm btn--danger" data-action="cal-disconnect">Déconnecter</button></div>`
+      : `<p class="muted" style="margin:0 0 10px;font-size:14px">Collez l'adresse secrète de votre Google Agenda : vos rendez-vous perso (médecin, famille, tournoi…) ne pourront plus être réservés par un élève.</p>
+        ${calForm(S.ui.calEdit ? imp.ics_url || "" : "")}`}
+      <h3 class="subhead" style="margin-top:18px">2. Mes séances apparaissent dans Google Agenda</h3>
+      ${S.api.icalUrl(S.coach) ? `<div class="field"><span>Lien privé (ne le partagez pas)</span><input type="text" id="ical-url" readonly value="${esc(S.api.icalUrl(S.coach))}"></div>
+        <div class="btn-row" style="margin-top:8px"><button class="btn btn--sm" data-action="copy" data-target="ical-url">Copier le lien</button></div>
+        <details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">Comment l'ajouter ?</summary>
+        <p style="margin:8px 0 0;font-size:14px"><b>Google Agenda</b> (sur ordinateur) : Autres agendas, +, À partir de l'URL, collez le lien.<br>
+        <b>iPhone</b> : Réglages, Calendrier, Comptes, Ajouter un compte, Autre, Ajouter un calendrier avec abonnement, collez le lien.</p></details>`
+        : `<p class="muted">Lien disponible une fois le service d'agenda activé par Pierre Créa Web.</p>`}
+    </section>`;
+  }
+  const calForm = (val) => `<form id="cal-form" class="grid" style="gap:10px">
+      <label class="field"><span>Adresse secrète au format iCal</span><input type="url" id="cal-url" value="${esc(val)}" placeholder="https://calendar.google.com/calendar/ical/…/basic.ics" autocomplete="off" spellcheck="false"></label>
+      <details><summary style="cursor:pointer;font-weight:700">Où la trouver ? (1 minute, sur ordinateur)</summary>
+        <ol style="margin:8px 0 0;padding-left:20px;font-size:14px;line-height:1.6">
+          <li>Ouvrez <b>calendar.google.com</b>, puis la roue dentée, <b>Paramètres</b>.</li>
+          <li>À gauche, sous « Paramètres de mes agendas », cliquez sur votre agenda.</li>
+          <li>Descendez jusqu'à <b>Intégrer l'agenda</b> et copiez l'<b>Adresse secrète au format iCal</b>.</li>
+          <li>Collez-la ici. Fonctionne aussi avec iCloud et Outlook (lien de publication).</li></ol></details>
+      <div class="btn-row"><button type="submit" class="btn btn--primary">Connecter mon agenda</button>
+        ${S.calImport && S.calImport.ics_url ? `<button type="button" class="btn" data-action="cal-cancel-edit">Annuler</button>` : ""}</div></form>`;
+  function bindCalForm(page) {
+    const f = page.querySelector("#cal-form");
+    if (!f) return;
+    f.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const url = P.normalizeCalendarUrl(f.querySelector("#cal-url").value);
+      if (!url) return toast("Adresse non reconnue : copiez l'« adresse secrète au format iCal » de Google Agenda (elle commence par https://calendar.google.com).");
+      const btn = f.querySelector("button[type=submit]");
+      btn.disabled = true; btn.textContent = "Connexion…";
+      try {
+        S.calImport = await S.api.saveCalendarImport({ coach_id: S.coach.id, ics_url: url, enabled: true });
+        try { await S.api.syncCalendar(S.coach.id); toast("Agenda connecté"); } catch (err) { toast(errMsg(err)); }
+        await reloadCalendar(); S.ui.calEdit = false; render();
+      } catch (err) { toast(errMsg(err)); btn.disabled = false; btn.textContent = "Connecter mon agenda"; }
+    });
+  }
+  async function reloadCalendar() {
+    const [imp, busy] = await Promise.all([S.api.list("calendar_imports", S.coach.id, "coach_id").catch(() => []), S.api.list("external_busy", S.coach.id, "starts_at").catch(() => [])]);
+    S.calImport = imp[0] || null; S.busy = busy;
+  }
+
   // ================================================== actions (délégation) ===
   async function copyText(text) {
     try { await navigator.clipboard.writeText(text); toast("Copié"); }
@@ -1273,6 +1759,8 @@
     more: () => openDrawer({
       title: "Plus",
       body: `<div class="sheet-menu">
+        <a href="#statistiques">${icon("chart")} Statistiques</a><a href="#avis">${icon("star")} Avis des élèves</a>
+        <a href="#partager">${icon("share")} Partager ma page</a>
         <a href="#messages">${icon("mail")} Messages${S.messages.some((m) => m.status === "new") ? ` <span class="badge" style="margin-left:auto">${S.messages.filter((m) => m.status === "new").length}</span>` : ""}</a>
         <a href="#prestations">${icon("tag")} Prestations et lieux</a><a href="#mon-site">${icon("brush")} Mon site</a><a href="#reglages">${icon("gear")} Réglages</a>
         <a href="../index.html?c=${encodeURIComponent(S.coach.slug)}" target="_blank" rel="noopener">${icon("ext")} Voir mon site</a>
@@ -1352,6 +1840,66 @@
     "delete-testimonial": async (el) => { try { await S.api.remove("testimonials", el.dataset.id); S.testimonials = S.testimonials.filter((t) => t.id !== el.dataset.id); closeDrawer(); toast("Témoignage supprimé"); render(); } catch (e) { toast(errMsg(e)); } },
     copy: (el) => copyText(document.getElementById(el.dataset.target).value),
     "copy-site": () => copyText(new URL(`../index.html?c=${encodeURIComponent(S.coach.slug)}`, location.href).href),
+    "copy-booking-link": () => copyText(bookingUrl()),
+    // partage
+    "share-tpl": (el) => { S.ui.shareTpl = el.dataset.tpl; S.ui.shareMsg = null; render(); },
+    "share-native": async () => { try { await navigator.share({ title: `Réserver avec ${S.coach.display_name}`, text: shareText() }); } catch { /* annulé */ } },
+    "share-wa": () => { window.open(`https://wa.me/?text=${encodeURIComponent(shareText())}`, "_blank", "noopener"); },
+    "share-sms": () => { location.href = `sms:?&body=${encodeURIComponent(shareText())}`; },
+    "share-mail": () => { location.href = `mailto:?subject=${encodeURIComponent(`Réservez votre cours de padel avec ${S.coach.display_name}`)}&body=${encodeURIComponent(shareText())}`; },
+    "share-copy-msg": () => copyText(shareText()),
+    "qr-png": async () => {
+      const cv = qrCanvas(bookingUrl(), brandColor(), 1200);
+      cv.toBlob((b) => saveBlob(b, `qr-reservation-${S.coach.slug}.png`, "QR code de réservation"), "image/png");
+    },
+    "story-png": async () => { const b = await storyImage(); await saveBlob(b, `story-reservation-${S.coach.slug}.png`, "Story Instagram"); },
+    "poster-print": () => printPoster(),
+    // avis
+    "rev-filter": (el) => { S.ui.revFilter = el.dataset.f; S.ui.revLimit = 10; render(); },
+    "rev-more": () => { S.ui.revLimit = (S.ui.revLimit || 10) + 10; render(); },
+    "review-reply": (el) => replyDrawer(el.dataset.id),
+    "review-report": (el) => reportDrawer(el.dataset.id),
+    "save-reply": async (el) => {
+      const text = el.dataset.clear ? "" : document.getElementById("rv-reply").value.trim();
+      if (!el.dataset.clear && !text) return toast("Écrivez votre réponse.");
+      try { await S.api.replyReview(el.dataset.id, text); Object.assign(S.reviews.find((r) => r.id === el.dataset.id), { reply: text || null, replied_at: text ? new Date().toISOString() : null });
+        closeDrawer(); render(); toast(text ? "Réponse publiée sur votre site" : "Réponse retirée"); }
+      catch (e) { toast(errMsg(e)); }
+    },
+    "save-report": async (el) => {
+      const reason = document.getElementById("rv-reason").value.trim();
+      try { await S.api.reportReview(el.dataset.id, reason); Object.assign(S.reviews.find((r) => r.id === el.dataset.id), { reported_at: new Date().toISOString(), report_reason: reason });
+        closeDrawer(); render(); toast("Signalement envoyé à Pierre Créa Web"); }
+      catch (e) { toast(errMsg(e)); }
+    },
+    "review-remove": async (el) => {
+      try { await S.api.update("reviews", el.dataset.id, { status: "removed" }); S.reviews.find((r) => r.id === el.dataset.id).status = "removed"; render(); toast("Avis retiré du site"); }
+      catch (e) { toast(errMsg(e)); }
+    },
+    // statistiques
+    "stats-kind": (el) => { S.ui.statsKind = el.dataset.kind; S.ui.statsAnchor = todayYmd(); render(); },
+    "stats-move": (el) => {
+      const kind = S.ui.statsKind || "month", dir = +el.dataset.dir, a = S.ui.statsAnchor || todayYmd();
+      const [y, m] = a.split("-").map(Number);
+      S.ui.statsAnchor = kind === "week" ? P.addDays(a, 7 * dir) : kind === "month" ? (() => { const d = new Date(Date.UTC(y, m - 1 + dir, 1)); return `${d.getUTCFullYear()}-${P.pad(d.getUTCMonth() + 1)}-01`; })() : `${y + dir}-01-01`;
+      render();
+    },
+    // agenda Google
+    "cal-sync": async (el) => {
+      el.disabled = true; el.textContent = "Synchronisation…";
+      try { const r = await S.api.syncCalendar(S.coach.id); toast(`Agenda à jour : ${r && r.events != null ? r.events : 0} rendez-vous`); }
+      catch (e) { toast(errMsg(e)); }
+      await reloadCalendar(); render();
+    },
+    "cal-edit": () => { S.ui.calEdit = true; render(); },
+    "cal-cancel-edit": () => { S.ui.calEdit = false; render(); },
+    "cal-disconnect": async () => {
+      try { S.calImport = await S.api.saveCalendarImport({ coach_id: S.coach.id, ics_url: null, enabled: false });
+        if (S.api.mode !== "demo") await S.api.syncCalendar(S.coach.id).catch(() => null);
+        await reloadCalendar(); render(); toast("Agenda Google déconnecté"); }
+      catch (e) { toast(errMsg(e)); }
+    },
+    "goto-google": () => { S.ui.scrollGoogle = true; location.hash = "reglages"; },
   };
 
   document.addEventListener("click", async (e) => {

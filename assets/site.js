@@ -37,6 +37,43 @@
   }
 
 
+  // ---------------------------------------------------------------- avis ---
+  // Avis vérifiés (laissés après une séance) avec la note de coaching ; à défaut, les témoignages du coach.
+  const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>';
+  const starRow = (n) => `<span class="stars" role="img" aria-label="${n.toLocaleString("fr-FR")} sur 5">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= Math.round(n) ? "on" : ""}">${STAR}</i>`).join("")}</span>`;
+  const fmtNote = (n) => n.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  let reviewsShown = 6;
+  function renderReviews(testimonials) {
+    const rating = state.site.rating || { count: 0 }, reviews = state.site.reviews || [];
+    const name = state.site.coach.display_name;
+    const hr = $("#hero-rating");
+    if (rating.count >= 3 && rating.average != null) {
+      hr.innerHTML = `${starRow(rating.average)}<b>${fmtNote(rating.average)}/5</b><span>${rating.count} avis d'élèves vérifiés</span>`;
+      hr.hidden = false;
+    } else hr.hidden = true;
+    if (reviews.length) {
+      $("#avis-title").textContent = "L'avis de mes élèves";
+      $("#rating-head").innerHTML = `<div class="rating-head__score"><span class="rating-head__value">${fmtNote(rating.average)}</span><span class="rating-head__max">/ 5</span></div>
+        <div>${starRow(rating.average)}<p><b>Note de coaching</b> · ${rating.count} avis</p>
+        <p class="muted">Avis vérifiés : laissés uniquement par des élèves après une séance réservée sur ce site.</p></div>`;
+      $("#rating-head").hidden = false;
+      const list = reviews.slice(0, reviewsShown);
+      $("#testimonials").innerHTML = list.map((r) => `<figure class="quote quote--review">${starRow(r.rating)}
+        ${r.comment ? `<p>${esc(r.comment)}</p>` : `<p class="muted quote__empty">Note sans commentaire</p>`}
+        <footer>${esc(r.author)}<small>${esc([r.service_name, r.date ? P.fmtYmd(r.date) : ""].filter(Boolean).join(" · "))}</small></footer>
+        ${r.reply ? `<blockquote class="quote__reply"><b>Réponse de ${esc(name)}</b>${esc(r.reply)}</blockquote>` : ""}</figure>`).join("");
+      $("#reviews-more").hidden = reviews.length <= reviewsShown;
+      $("#avis").hidden = false;
+      return;
+    }
+    $("#rating-head").hidden = true;
+    $("#reviews-more").hidden = true;
+    $("#testimonials").innerHTML = testimonials.map((t) => `
+      <figure class="quote">${t.rating ? `<span class="stars stars--text" aria-label="${t.rating} sur 5">${"★".repeat(t.rating)}</span>` : ""}
+      <p>${esc(t.text)}</p><footer>${esc(t.author)}</footer></figure>`).join("");
+    $("#avis").hidden = !testimonials.length;
+  }
+
   // Garde le coach affiché (?c=slug) quand on passe d'une page à l'autre.
   function withSlug(href) {
     const q = new URLSearchParams(location.search).get("c");
@@ -249,10 +286,7 @@
       ${safeHref(l.maps_url) ? `<a href="${esc(l.maps_url)}" target="_blank" rel="noopener">Itinéraire</a>` : ""}</article>`).join("");
     $("#lieux").hidden = !locations.length;
 
-    $("#testimonials").innerHTML = testimonials.map((t) => `
-      <figure class="quote">${t.rating ? `<span class="stars" aria-label="${t.rating} sur 5">${"★".repeat(t.rating)}</span>` : ""}
-      <p>${esc(t.text)}</p><footer>${esc(t.author)}</footer></figure>`).join("");
-    $("#avis").hidden = !testimonials.length;
+    renderReviews(testimonials);
 
     const rows = [];
     if (c.phone) rows.push(["Téléphone", c.phone, `tel:${c.phone.replace(/\s/g, "")}`, "Appeler"]);
@@ -508,6 +542,7 @@
       if (ev.target.id === "f-party") { state.party = Number(ev.target.value); readForm(); renderBooking(); }
     });
     $("#contact-form").addEventListener("submit", (e) => { e.preventDefault(); sendContact(); });
+    $("#reviews-more-btn").addEventListener("click", () => { reviewsShown += 6; renderReviews(state.site.testimonials || []); });
     $("#contact-form").addEventListener("input", () => { const a = $("#contact-alert"); if (a && a.innerHTML) a.innerHTML = ""; });
   }
 
