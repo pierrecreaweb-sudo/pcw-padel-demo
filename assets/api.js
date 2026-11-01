@@ -113,6 +113,15 @@
       // ---- avis
       replyReview: async (id, reply) => { unwrap(await sb.rpc("coach_reply_review", { p_review_id: id, p_reply: reply || null })); },
       reportReview: async (id, reason) => { unwrap(await sb.rpc("coach_report_review", { p_review_id: id, p_reason: reason })); },
+      // ---- avis du coach sur PCW Padel Coach (page de vente)
+      getTestimonial: async (coachId) => unwrap(await sb.from("coach_testimonials").select("*").eq("coach_id", coachId).maybeSingle()),
+      saveTestimonial: async (coachId, t) => unwrap(await sb.rpc("coach_save_testimonial", {
+        p_coach_id: coachId, p_rating: t.rating, p_body: t.body, p_author_name: t.author_name,
+        p_author_role: t.author_role || null, p_place: t.place || null, p_show_photo: Boolean(t.show_photo),
+      })),
+      deleteTestimonial: async (coachId) => { unwrap(await sb.rpc("coach_delete_testimonial", { p_coach_id: coachId })); },
+      listTestimonials: async () => unwrap(await sb.from("coach_testimonials").select("*, coach:coaches(display_name, slug, status)").order("updated_at", { ascending: false })) || [],
+      moderateTestimonial: async (id, status, note) => unwrap(await sb.rpc("admin_moderate_testimonial", { p_id: id, p_status: status, p_note: note || null })),
       // ---- agenda Google (import)
       saveCalendarImport: async (row) => unwrap(await sb.from("calendar_imports").upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: "coach_id" }).select().single()),
       syncCalendar: async (coachId) => {
@@ -431,6 +440,32 @@
         const text = String(reason || "").trim();
         if (text.length < 5 || text.length > 500) throw new ApiError("Expliquez en quelques mots pourquoi cet avis est abusif.", "INVALID_INPUT");
         Object.assign(db.reviews.find((x) => x.id === id), { reported_at: new Date().toISOString(), report_reason: text }); save(); return delay();
+      },
+      getTestimonial: async (coachId) => delay(clone((db.coach_testimonials || []).find((t) => t.coach_id === coachId) || null)),
+      saveTestimonial: async (coachId, t) => {
+        const body = String(t.body || "").trim(), name = String(t.author_name || "").trim();
+        if (!(t.rating >= 1 && t.rating <= 5)) throw new ApiError("Choisissez une note de 1 à 5 étoiles.", "INVALID_INPUT");
+        if (body.length < 20) throw new ApiError("Votre avis est un peu court : 20 caractères minimum.", "INVALID_INPUT");
+        if (body.length > 600) throw new ApiError("Votre avis est trop long : 600 caractères maximum.", "INVALID_INPUT");
+        if (name.length < 2 || name.length > 60) throw new ApiError("Indiquez le nom à afficher (2 à 60 caractères).", "INVALID_INPUT");
+        db.coach_testimonials = db.coach_testimonials || [];
+        let r = db.coach_testimonials.find((x) => x.coach_id === coachId);
+        const now = new Date().toISOString();
+        if (!r) { r = { id: P.uuid(), coach_id: coachId, created_at: now }; db.coach_testimonials.push(r); }
+        Object.assign(r, { rating: t.rating, body, author_name: name, author_role: String(t.author_role || "").trim() || null,
+          place: String(t.place || "").trim() || null, show_photo: Boolean(t.show_photo), status: "pending", admin_note: null, published_at: null, updated_at: now });
+        save(); return delay(clone(r));
+      },
+      deleteTestimonial: async (coachId) => { db.coach_testimonials = (db.coach_testimonials || []).filter((t) => t.coach_id !== coachId); save(); return delay(); },
+      listTestimonials: async () => delay(clone((db.coach_testimonials || []).map((t) => {
+        const c = db.coaches.find((x) => x.id === t.coach_id) || {};
+        return { ...t, coach: { display_name: c.display_name, slug: c.slug, status: c.status } };
+      }))),
+      moderateTestimonial: async (id, status, note) => {
+        const r = (db.coach_testimonials || []).find((x) => x.id === id);
+        if (!r) throw new ApiError("Avis introuvable.", "NOT_FOUND");
+        Object.assign(r, { status, admin_note: String(note || "").trim() || null, published_at: status === "published" ? new Date().toISOString() : null, updated_at: new Date().toISOString() });
+        save(); return delay(clone(r));
       },
       saveCalendarImport: async (row) => {
         db.calendar_imports = db.calendar_imports || [];
