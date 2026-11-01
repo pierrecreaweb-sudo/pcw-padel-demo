@@ -207,8 +207,9 @@
     const badgeFor = (key) => key === "reservations" && pending ? `<span class="badge">${pending}</span>` : key === "messages" && unread ? `<span class="badge">${unread}</span>` : "";
     const navItem = (key) => `<a class="navlink" href="#${key}" ${v === key ? 'aria-current="page"' : ""}>${icon(VIEWS[key].icon)}<span>${VIEWS[key].label}</span>
       ${badgeFor(key)}</a>`;
-    const tabKeys = ["dashboard", "reservations", "agenda", "joueurs"];
     const siteUrl = `../index.html?c=${encodeURIComponent(S.coach.slug)}`;
+    const tab = (k) => `<a class="tab" href="#${k}" ${v === k ? 'aria-current="page"' : ""}>${icon(VIEWS[k].icon)}<span>${VIEWS[k].short || VIEWS[k].label}</span>${badgeFor(k)}</a>`;
+    const inMore = !["dashboard", "reservations", "agenda", "messages"].includes(v);
     app.innerHTML = `<div class="shell">
       <aside class="side">
         <div class="side__brand"><span class="dot"></span><span>${esc(S.coach.display_name.toUpperCase())}</span></div>
@@ -222,9 +223,10 @@
       </aside>
       <main class="main"><div class="page" id="page"></div></main>
       <nav class="tabbar" aria-label="Menu">
-        ${tabKeys.map((k) => `<a class="tab" href="#${k}" ${v === k ? 'aria-current="page"' : ""}>${icon(VIEWS[k].icon)}<span>${VIEWS[k].short || VIEWS[k].label}</span>
-          ${k === "reservations" && pending ? `<span class="badge">${pending}</span>` : ""}</a>`).join("")}
-        <button type="button" class="tab" data-action="more" ${["statistiques", "avis", "partager", "messages", "prestations", "mon-site", "reglages"].includes(v) ? 'aria-current="page"' : ""}>${icon("more")}<span>Plus</span>${unread ? `<span class="badge">${unread}</span>` : ""}</button>
+        ${tab("dashboard")}${tab("reservations")}
+        <a class="tab tab--center" href="#agenda" ${v === "agenda" ? 'aria-current="page"' : ""}><span class="tab__bubble">${icon(VIEWS.agenda.icon)}</span><span>Agenda</span></a>
+        ${tab("messages")}
+        <button type="button" class="tab" data-action="more" ${inMore ? 'aria-current="page"' : ""}>${icon("more")}<span>Plus</span></button>
       </nav>
     </div>`;
     const page = document.getElementById("page");
@@ -236,6 +238,7 @@
     if (sw) sw.addEventListener("change", async () => { await selectCoach(sw.value); });
   }
   const AFTER = {};
+
 
   // ============================================================ connexion ===
   function renderLogin(msg = "", kind = "err") {
@@ -1769,7 +1772,7 @@
       title: "Plus",
       body: `<div class="sheet-menu">
         <span class="sheet-menu__group">Au quotidien</span>
-        <a href="#messages">${icon("mail")} Messages${S.messages.some((m) => m.status === "new") ? ` <span class="badge" style="margin-left:auto">${S.messages.filter((m) => m.status === "new").length}</span>` : ""}</a>
+        <a href="#joueurs">${icon(VIEWS.joueurs.icon)} Joueurs</a>
         <span class="sheet-menu__group">Mon activité</span>
         <a href="#statistiques">${icon("chart")} Statistiques</a><a href="#avis">${icon("star")} Avis des élèves</a>
         <span class="sheet-menu__group">Ma vitrine</span>

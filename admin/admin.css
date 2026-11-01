@@ -99,18 +99,25 @@ a { color: var(--accent); }
 @media (max-width: 860px) {
   .shell { grid-template-columns: 1fr; }
   .side { display: none; }
-  .main { padding: 18px var(--gr) calc(96px + env(safe-area-inset-bottom, 0px)) var(--gl); }
+  .main { padding: 18px var(--gr) calc(104px + env(safe-area-inset-bottom, 0px)) var(--gl); }
   .page__head h1 { font-size: 24px; }
   .tabbar {
-    display: grid; grid-template-columns: repeat(5, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+    display: grid; grid-template-columns: repeat(5, 1fr); align-items: end; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
     background: var(--panel); border-top: 1px solid var(--line);
     padding: 6px var(--gr) calc(6px + env(safe-area-inset-bottom, 0px)) var(--gl);
   }
-  .tab { display: grid; justify-items: center; gap: 2px; padding: 6px 2px; border-radius: 10px; color: var(--muted); text-decoration: none; font-size: 11px; font-weight: 700; position: relative; background: none; border: 0; cursor: pointer; }
+  .tab { display: grid; justify-items: center; gap: 2px; padding: 6px 2px; border-radius: 10px; color: var(--muted); text-decoration: none; font-size: 11px; font-weight: 700; position: relative; background: none; border: 0; cursor: pointer; font-family: inherit; }
   .tab svg { width: 22px; height: 22px; }
   .tab[aria-current="page"] { color: var(--ink); }
   .tab[aria-current="page"] svg { color: var(--accent); }
   .tab .badge { position: absolute; top: 2px; right: calc(50% - 22px); }
+  /* Agenda au centre, mis en avant */
+  .tab--center { padding-top: 0; }
+  .tab__bubble { display: grid; place-items: center; width: 54px; height: 54px; margin-top: -26px; border-radius: 50%; background: var(--nav); color: #fff; box-shadow: 0 6px 16px rgba(14, 42, 82, .3), 0 0 0 4px var(--panel); transition: transform .15s; }
+  .tab--center svg, .tab--center[aria-current="page"] svg { width: 24px; height: 24px; color: inherit; }
+  .tab--center[aria-current="page"] .tab__bubble { background: var(--ball); color: var(--ball-ink); }
+  .tab--center:active .tab__bubble { transform: scale(.94); }
+  .tab:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
 }
 
 /* ---------------------------------------------------------------- blocs --- */
@@ -307,7 +314,7 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .site-toc a:hover { background: var(--panel); color: var(--ink); }
 .site-sections { display: grid; gap: 16px; min-width: 0; grid-template-columns: minmax(0, 1fr); }
 .savebar { position: sticky; bottom: 12px; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border-radius: 12px; background: var(--nav); color: var(--nav-ink); box-shadow: var(--shadow); }
-@media (max-width: 860px) { .site-layout { grid-template-columns: 1fr; } .site-toc { display: none; } .savebar { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); } }
+@media (max-width: 860px) { .site-layout { grid-template-columns: 1fr; } .site-toc { display: none; } .savebar { bottom: calc(84px + env(safe-area-inset-bottom, 0px)); } }
 .preview-swatch { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 10px; font-weight: 800; }
 .preview-swatch span { padding: 6px 12px; border-radius: 99px; font-size: 13px; }
 
