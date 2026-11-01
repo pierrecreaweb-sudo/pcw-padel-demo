@@ -1229,6 +1229,8 @@
             <div class="field"><span>Adresse de votre site</span><input type="text" id="site-url" readonly value="${esc(c.custom_domain ? "https://" + c.custom_domain : siteUrl)}"></div>
             <div class="btn-row" style="margin-top:8px"><button class="btn btn--sm" data-action="copy" data-target="site-url">Copier</button>
             ${pill(c.status === "live" ? "confirmed" : "pending", c.status === "live" ? "En ligne" : c.status === "draft" ? "Brouillon" : "Suspendu")}</div></section>
+          <section class="card" id="pcw-avis"><h2>Votre avis sur PCW Padel Coach</h2><p class="muted" style="margin:0">Chargement…</p></section>
+          ${S.isAdmin ? `<section class="card" id="pcw-avis-admin" style="border-color:var(--accent)"><h2>Avis des coachs <small>visible par l'équipe PCW seulement</small></h2><p class="muted" style="margin:0">Chargement…</p></section>` : ""}
           ${S.isAdmin ? `<section class="card" style="border-color:var(--accent)"><h2>Plateforme PCW <small>visible par l'équipe PCW seulement</small></h2>
             <div class="switch"><span><b>Statut de ce site</b><small>${c.status === "live" ? "Visible et ouvert aux réservations" : "Invisible du public tant qu'il n'est pas en ligne"}</small></span>
               ${c.status === "live" ? `<button type="button" class="btn btn--sm" data-action="set-status" data-status="draft">Repasser en brouillon</button>`
@@ -1249,6 +1251,8 @@
   }
   AFTER.reglages = (page) => {
     bindCalForm(page);
+    loadTestimonial(page);
+    if (S.isAdmin) loadTestimonialsAdmin(page);
     if (S.ui.scrollGoogle) { S.ui.scrollGoogle = false; const g = page.querySelector("#google"); if (g) g.scrollIntoView({ block: "start" }); }
     page.querySelector("#rules-form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -1289,6 +1293,99 @@
       catch (err) { toast(errMsg(err)); }
     });
   };
+
+  // ============================================= avis du coach sur PCW ===
+  // Le coach écrit son avis sur le service ; il est publié sur pcwpadel.fr après validation par l'équipe PCW.
+  const T_STATUS = {
+    pending: ["pending", "En attente de validation", "L'équipe PCW le relit avant de le publier sur pcwpadel.fr, en général sous 48 h."],
+    published: ["confirmed", "Publié sur pcwpadel.fr", "Merci ! Votre avis aide d'autres coachs à se lancer."],
+    rejected: ["cancelled", "Non publié", ""],
+  };
+  const shortName = (n) => { const w = String(n || "").trim().split(/\s+/); return w.length > 1 ? `${w[0]} ${w[w.length - 1][0].toUpperCase()}.` : w[0] || ""; };
+  async function loadTestimonial(page) {
+    const box = page.querySelector("#pcw-avis");
+    if (!box) return;
+    try { S.testimonial = await S.api.getTestimonial(S.coach.id); } catch (e) { S.testimonial = null; }
+    renderTestimonial(box);
+  }
+  function renderTestimonial(box, editing) {
+    const t = S.testimonial, c = S.coach;
+    const hasPortrait = Boolean(S.site && S.site.theme && S.site.theme.portrait_image);
+    const head = `<h2>Votre avis sur PCW Padel Coach</h2>`;
+    if (t && !editing) {
+      const [cls, label, help] = T_STATUS[t.status] || T_STATUS.pending;
+      box.innerHTML = `${head}
+        <div class="t-preview">${stars(t.rating, 18)}<blockquote>${esc(t.body)}</blockquote>
+          <p class="muted" style="margin:0;font-size:13px"><b style="color:var(--ink)">${esc(t.author_name)}</b>${t.author_role ? ` · ${esc(t.author_role)}` : ""}${t.place ? ` · ${esc(t.place)}` : ""}</p></div>
+        <div class="btn-row" style="margin:12px 0 6px;align-items:center">${pill(cls, label)}</div>
+        ${help ? `<p class="muted" style="margin:0 0 10px;font-size:13px">${help}</p>` : ""}
+        ${t.status === "rejected" && t.admin_note ? `<p class="alert alert--err" style="margin:0 0 10px">${esc(t.admin_note)}</p>` : ""}
+        <div class="btn-row"><button type="button" class="btn btn--sm" data-action="t-edit">Modifier</button>
+          <button type="button" class="btn btn--sm btn--danger" data-action="t-delete">Retirer mon avis</button></div>`;
+      return;
+    }
+    const v = t || { rating: 0, body: "", author_name: shortName(c.display_name), author_role: "Coach de padel", place: c.city || "", show_photo: false };
+    box.innerHTML = `${head}
+      <p class="muted" style="margin:0 0 12px;font-size:14px">${t ? "Une modification repasse en validation avant d'être publiée." : "Racontez en quelques lignes ce que l'outil a changé pour vous. Après validation par l'équipe PCW, votre avis apparaît sur pcwpadel.fr pour aider d'autres coachs à se décider."}</p>
+      <form id="t-form" class="grid" style="gap:12px">
+        <div class="t-rate" role="radiogroup" aria-label="Votre note sur 5">${[1, 2, 3, 4, 5].map((n) =>
+          `<label><input type="radio" name="t-rating" value="${n}" ${v.rating === n ? "checked" : ""}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg><span class="sr">${n} sur 5</span></label>`).join("")}</div>
+        <label class="field"><span>Votre avis</span><textarea id="t-body" rows="4" maxlength="600" placeholder="Ex. : mes élèves réservent seuls, je ne passe plus mes soirées à répondre aux messages…">${esc(v.body)}</textarea>
+          <small class="muted" style="text-align:right"><span id="t-count">${v.body.length}</span> / 600</small></label>
+        <div class="form-grid">
+          <label class="field"><span>Nom affiché</span><input type="text" id="t-name" maxlength="60" value="${esc(v.author_name)}"></label>
+          <label class="field"><span>Activité</span><input type="text" id="t-role" maxlength="60" value="${esc(v.author_role || "")}"></label>
+          <label class="field full"><span>Ville et club</span><input type="text" id="t-place" maxlength="80" value="${esc(v.place || "")}" placeholder="Toulouse · Padel Club Garonne"></label>
+        </div>
+        ${hasPortrait ? `<label class="switch"><span><b>Afficher ma photo</b><small>Celle du portrait de votre site</small></span><input type="checkbox" id="t-photo" ${v.show_photo ? "checked" : ""}></label>` : ""}
+        <label class="t-consent"><input type="checkbox" id="t-consent" ${t ? "checked" : ""}><span>J'accepte que cet avis soit publié sur pcwpadel.fr avec ce nom${hasPortrait ? " (et ma photo si je l'ai cochée)" : ""}. Je peux le retirer à tout moment.</span></label>
+        <div class="btn-row"><button type="submit" class="btn btn--primary">${t ? "Envoyer la modification" : "Envoyer mon avis"}</button>
+          ${t ? `<button type="button" class="btn" data-action="t-cancel">Annuler</button>` : ""}</div>
+      </form>`;
+    const form = box.querySelector("#t-form");
+    const body = form.querySelector("#t-body");
+    body.addEventListener("input", () => { form.querySelector("#t-count").textContent = body.value.length; });
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const r = form.querySelector('input[name="t-rating"]:checked');
+      if (!r) return toast("Choisissez une note de 1 à 5 étoiles.");
+      if (!form.querySelector("#t-consent").checked) return toast("Cochez l'accord de publication pour envoyer votre avis.");
+      const btn = form.querySelector("button[type=submit]");
+      btn.disabled = true;
+      try {
+        S.testimonial = await S.api.saveTestimonial(S.coach.id, {
+          rating: +r.value, body: body.value.trim(), author_name: form.querySelector("#t-name").value.trim(),
+          author_role: form.querySelector("#t-role").value.trim(), place: form.querySelector("#t-place").value.trim(),
+          show_photo: Boolean(form.querySelector("#t-photo") && form.querySelector("#t-photo").checked),
+        });
+        toast("Merci ! Votre avis est envoyé pour validation");
+        renderTestimonial(box);
+        const adm = document.getElementById("pcw-avis-admin");
+        if (adm) loadTestimonialsAdmin(document);
+      } catch (err) { toast(errMsg(err)); btn.disabled = false; }
+    });
+  }
+  async function loadTestimonialsAdmin(page) {
+    const box = page.querySelector("#pcw-avis-admin");
+    if (!box) return;
+    let list = [];
+    try { list = await S.api.listTestimonials(); } catch (e) { box.innerHTML = `<h2>Avis des coachs</h2><p class="muted">${esc(errMsg(e))}</p>`; return; }
+    const order = { pending: 0, published: 1, rejected: 2 };
+    list.sort((a, b) => order[a.status] - order[b.status] || String(b.updated_at).localeCompare(String(a.updated_at)));
+    const waiting = list.filter((t) => t.status === "pending").length;
+    box.innerHTML = `<h2>Avis des coachs <small>${waiting ? `${waiting} à valider` : "visible par l'équipe PCW seulement"}</small></h2>
+      ${list.length ? list.map((t) => {
+        const [cls, label] = T_STATUS[t.status] || T_STATUS.pending;
+        return `<div class="t-admin">
+          <div class="t-admin__head"><b>${esc((t.coach && t.coach.display_name) || "")}</b>${pill(cls, label)}</div>
+          ${stars(t.rating, 15)}<blockquote>${esc(t.body)}</blockquote>
+          <p class="muted" style="margin:0 0 8px;font-size:13px">Affiché : ${esc(t.author_name)}${t.author_role ? ` · ${esc(t.author_role)}` : ""}${t.place ? ` · ${esc(t.place)}` : ""}${t.show_photo ? " · avec photo" : ""}</p>
+          ${t.status !== "rejected" ? `<input type="text" class="t-note" id="t-note-${t.id}" maxlength="300" placeholder="Raison si vous refusez (visible par le coach, facultatif)">` : ""}
+          <div class="btn-row">${t.status !== "published" ? `<button type="button" class="btn btn--sm btn--primary" data-action="t-moderate" data-id="${t.id}" data-status="published">Publier</button>` : ""}
+            ${t.status !== "rejected" ? `<button type="button" class="btn btn--sm" data-action="t-moderate" data-id="${t.id}" data-status="rejected">${t.status === "published" ? "Retirer" : "Refuser"}</button>` : ""}</div>
+        </div>`;
+      }).join("") : `<p class="muted" style="margin:0">Aucun avis de coach pour l'instant.</p>`}`;
+  }
 
   // ============================================================ partager ===
   // Lien de la page de réservation du coach : son domaine s'il en a un, sinon le site modèle.
@@ -1768,6 +1865,23 @@
       catch (e) { renderLogin(errMsg(e)); }
     },
     "change-password": () => { S.recovery = true; render(); },
+    "t-edit": () => renderTestimonial(document.getElementById("pcw-avis"), true),
+    "t-cancel": () => renderTestimonial(document.getElementById("pcw-avis")),
+    "t-delete": async (el) => {
+      if (el.dataset.confirm !== "1") { el.dataset.confirm = "1"; el.textContent = "Confirmer le retrait"; return; }
+      try { await S.api.deleteTestimonial(S.coach.id); S.testimonial = null; toast("Avis retiré de pcwpadel.fr"); renderTestimonial(document.getElementById("pcw-avis")); if (S.isAdmin) loadTestimonialsAdmin(document); }
+      catch (err) { toast(errMsg(err)); }
+    },
+    "t-moderate": async (el) => {
+      let note = null;
+      if (el.dataset.status === "rejected") { const n = document.getElementById(`t-note-${el.dataset.id}`); note = n ? n.value.trim() || null : null; }
+      try {
+        await S.api.moderateTestimonial(el.dataset.id, el.dataset.status, note);
+        toast(el.dataset.status === "published" ? "Avis publié sur pcwpadel.fr" : "Avis non publié");
+        loadTestimonialsAdmin(document);
+        if (S.testimonial && S.testimonial.id === el.dataset.id) { S.testimonial = await S.api.getTestimonial(S.coach.id); renderTestimonial(document.getElementById("pcw-avis")); }
+      } catch (err) { toast(errMsg(err)); }
+    },
     more: () => openDrawer({
       title: "Plus",
       body: `<div class="sheet-menu">
