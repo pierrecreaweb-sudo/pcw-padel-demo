@@ -24,6 +24,7 @@
     cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
     users: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6 6 0 0 1 3.5 6"/>',
     tag: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
+    crop: '<path d="M6 2v14a2 2 0 0 0 2 2h14M2 6h14a2 2 0 0 1 2 2v14"/>',
     brush: '<path d="M4 20c4 0 5-2 5-4a3 3 0 0 0-3-3c-2 0-3 2-2 7zM9.5 13.5 20 3l1 1L10.5 14.5"/>',
     gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>',
     mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
@@ -948,9 +949,11 @@
     const lines = (a) => esc((a || []).join("\n"));
     const stats = c.stats || [];
     const fontOpts = (sel) => Object.keys(P.FONTS).map((f) => `<option ${f === sel ? "selected" : ""}>${f}</option>`).join("");
+    const crops = th.crops || {};
     const upload = (key, label, val) => `<div class="field"><span>${label}</span><div class="upload">
-      <span class="upload__thumb" id="th-${key}" style="${val ? `background-image:url('${esc(val)}')` : ""}"></span>
+      <span class="upload__thumb${key === "logo_url" ? " upload__thumb--logo" : ""}" id="th-${key}">${val ? thumbImg(val, crops[key]) : ""}</span>
       <div class="btn-row"><label class="btn btn--sm">Choisir une image<input type="file" accept="image/*" data-upload="${key}" hidden></label>
+      ${val && CROP_FRAMES[key] ? `<button type="button" class="btn btn--sm" data-crop-upload="${key}">${icon("crop")} Recadrer</button>` : ""}
       ${val ? `<button type="button" class="btn btn--sm btn--danger" data-clear-upload="${key}">Retirer</button>` : ""}</div>
       <input type="hidden" id="img-${key}" value="${esc(val || "")}"></div></div>`;
     const sec = (id, title, body) => `<section class="card" id="${id}"><h2>${title}</h2>${body}</section>`;
@@ -1041,21 +1044,105 @@
         if (file.size > 5e6) { toast("Image trop lourde : 5 Mo maximum."); return; }
         const url = await S.api.upload(S.coach.id, file);
         page.querySelector("#img-" + key).value = url;
-        page.querySelector("#th-" + key).style.backgroundImage = `url('${url}')`;
-        toast("Image prête. Enregistrez pour la publier.");
+        delete S.cropDraft[key];
+        page.querySelector("#th-" + key).innerHTML = thumbImg(url);
+        const row = inp.closest(".btn-row");
+        if (CROP_FRAMES[key] && !row.querySelector("[data-crop-upload]")) row.querySelector("label").insertAdjacentHTML("afterend", `<button type="button" class="btn btn--sm" data-crop-upload="${key}">${icon("crop")} Recadrer</button>`);
+        if (!row.querySelector("[data-clear-upload]")) row.insertAdjacentHTML("beforeend", `<button type="button" class="btn btn--sm btn--danger" data-clear-upload="${key}">Retirer</button>`);
+        toast(CROP_FRAMES[key] ? "Image prête. Recadrez-la si besoin, puis enregistrez." : "Image prête. Enregistrez pour la publier.");
       } catch (err) { toast(errMsg(err)); }
     });
+    S.cropDraft = { ...(((S.site && S.site.theme) || {}).crops || {}) };
     page.addEventListener("click", (e) => {
+      const cb = e.target.closest("[data-crop-upload]");
+      if (cb) {
+        const key = cb.dataset.cropUpload, url = page.querySelector("#img-" + key).value;
+        if (!url) return;
+        openCropper({ url, crop: S.cropDraft[key], frames: CROP_FRAMES[key], title: CROP_TITLES[key], onSave: (crop) => {
+          if (crop) S.cropDraft[key] = crop; else delete S.cropDraft[key];
+          page.querySelector("#th-" + key).innerHTML = thumbImg(url, crop);
+          toast("Cadrage prêt. Enregistrez pour le publier.");
+        } });
+        return;
+      }
       const b = e.target.closest("[data-clear-upload]");
       if (!b) return;
       const key = b.dataset.clearUpload;
       page.querySelector("#img-" + key).value = "";
-      page.querySelector("#th-" + key).style.backgroundImage = "";
+      page.querySelector("#th-" + key).innerHTML = "";
+      delete S.cropDraft[key];
+      const c = b.parentElement.querySelector("[data-crop-upload]");
+      if (c) c.remove();
       b.remove();
     });
     page.querySelector("#site-form").addEventListener("submit", saveSite);
     page.addEventListener("change", onGalleryChange);
   };
+
+  // -------------------------------------------------------- recadrage ---
+  // Chaque emplacement a son format sur ordinateur et sur mobile : le coach voit tous les cadres en même temps.
+  const CROP_FRAMES = {
+    hero_image: [{ label: "Ordinateur", ratio: 4 / 5 }, { label: "Mobile", ratio: 5 / 4 }],
+    hero_image_2: [{ label: "Incrustation", ratio: 4 / 3 }],
+    portrait_image: [{ label: "Ordinateur", ratio: 4 / 5 }, { label: "Mobile", ratio: 16 / 10 }],
+    gallery: [{ label: "Case de la galerie", ratio: 3 / 2 }, { label: "Grande case", ratio: 3 / 1 }, { label: "Mobile", ratio: 4 / 3 }],
+  };
+  const CROP_TITLES = { hero_image: "Recadrer la photo principale", hero_image_2: "Recadrer la photo d'action", portrait_image: "Recadrer le portrait" };
+  const thumbImg = (url, crop) => `<img src="${esc(url)}" alt=""${P.cropStyle(crop)}>`;
+
+  function openCropper({ url, crop, frames, title, onSave }) {
+    let c = { x: 50, y: 50, z: 1, ...(P.normCrop(crop) || {}) };
+    const el = openDrawer({
+      title: title || "Recadrer la photo", wide: true,
+      body: `<div class="crop" id="crop">
+        <p class="muted crop__hint">Faites glisser la photo pour choisir ce qui reste au centre, puis zoomez si besoin. La photo d'origine n'est pas modifiée.</p>
+        <div class="crop__frames">${frames.map((f, i) => `<figure class="crop__fig${i ? "" : " crop__fig--main"}">
+          <div class="crop__frame" style="aspect-ratio:${f.ratio};--r:${f.ratio}" tabindex="0" role="application" aria-label="Cadre ${esc(f.label)} : glissez ou utilisez les flèches du clavier">
+            <img src="${esc(url)}" alt="" draggable="false"><span class="crop__grid" aria-hidden="true"></span></div>
+          <figcaption>${esc(f.label)}</figcaption></figure>`).join("")}</div>
+        <label class="field crop__zoom"><span>Zoom <small id="crop-zv"></small></span><input type="range" id="crop-z" min="1" max="3" step="0.01"></label>
+      </div>`,
+      foot: `<button type="button" class="btn" id="crop-reset">Centrer</button><span style="flex:1"></span>
+        <button type="button" class="btn" data-close-drawer>Annuler</button><button type="button" class="btn btn--dark" id="crop-save">Enregistrer le cadrage</button>`,
+    });
+    const box = el.querySelector("#crop"), zoom = el.querySelector("#crop-z"), zv = el.querySelector("#crop-zv");
+    const img = el.querySelector(".crop__frame img");
+    const paint = () => {
+      box.style.setProperty("--fx", c.x + "%"); box.style.setProperty("--fy", c.y + "%"); box.style.setProperty("--fz", c.z);
+      zoom.value = c.z; zv.textContent = `× ${c.z.toFixed(1).replace(".", ",")}`;
+    };
+    // Déplacement exact : avec object-position et un zoom centré sur le même point, le bord
+    // de l'image est à -x% du débordement. Un glissement de d px change donc x de d / débordement.
+    const overflow = (frame) => {
+      const W = frame.clientWidth, H = frame.clientHeight, w = img.naturalWidth || W, h = img.naturalHeight || H;
+      const s = Math.max(W / w, H / h) * c.z;
+      return { ex: w * s - W, ey: h * s - H };
+    };
+    const nudge = (frame, dx, dy) => {
+      const { ex, ey } = overflow(frame);
+      if (ex > 0.5) c.x = Math.min(100, Math.max(0, c.x - dx / ex * 100));
+      if (ey > 0.5) c.y = Math.min(100, Math.max(0, c.y - dy / ey * 100));
+      paint();
+    };
+    el.querySelectorAll(".crop__frame").forEach((frame) => {
+      let last = null;
+      frame.addEventListener("pointerdown", (e) => { last = [e.clientX, e.clientY]; frame.setPointerCapture(e.pointerId); frame.classList.add("is-drag"); });
+      frame.addEventListener("pointermove", (e) => { if (!last) return; nudge(frame, e.clientX - last[0], e.clientY - last[1]); last = [e.clientX, e.clientY]; });
+      const end = () => { last = null; frame.classList.remove("is-drag"); };
+      frame.addEventListener("pointerup", end); frame.addEventListener("pointercancel", end);
+      frame.addEventListener("keydown", (e) => {
+        const k = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+        if (!k) return;
+        e.preventDefault();
+        c.x = Math.min(100, Math.max(0, c.x + k[0] * 2)); c.y = Math.min(100, Math.max(0, c.y + k[1] * 2)); paint();
+      });
+      frame.addEventListener("wheel", (e) => { e.preventDefault(); c.z = Math.min(3, Math.max(1, Math.round((c.z - e.deltaY * 0.002) * 100) / 100)); paint(); }, { passive: false });
+    });
+    zoom.addEventListener("input", () => { c.z = +zoom.value; paint(); });
+    el.querySelector("#crop-reset").addEventListener("click", () => { c = { x: 50, y: 50, z: 1 }; paint(); });
+    el.querySelector("#crop-save").addEventListener("click", () => { closeDrawer(); onSave(P.normCrop(c)); });
+    paint();
+  }
 
   // ---------------------------------------------------------- galerie ---
   // Réduit une photo (côté le plus long, qualité JPEG) avant l'envoi : pages plus rapides, stockage économisé.
@@ -1084,7 +1171,7 @@
       <label class="dropzone" id="gal-drop"><input type="file" accept="image/*" multiple data-gallery-upload class="sr-only">
         ${icon("plus")}<span><b>Ajouter des photos</b><br><small>Plusieurs à la fois · JPG, PNG ou WebP · réduites automatiquement</small></span></label>
       <div class="media-grid">${list.map((m, i) => `<div class="media-tile ${m.visible ? "" : "media-tile--off"}">
-        <div class="media-tile__img" ${m.url ? `style="background-image:url('${esc(m.url)}')"` : ""}>${m.url ? "" : `<span>Emplacement</span>`}</div>
+        <div class="media-tile__img">${m.url ? thumbImg(m.url, m.crop) : `<span>Emplacement</span>`}</div>
         ${confirmId === m.id ? `<div class="confirm-box" style="margin:8px">Supprimer cette photo ?<div class="btn-row">
             <button type="button" class="btn btn--sm" data-action="media-cancel">Non</button><button type="button" class="btn btn--sm btn--dark" data-action="media-delete" data-id="${m.id}">Supprimer</button></div></div>`
           : `<input type="text" class="media-tile__cap" data-media-caption="${m.id}" maxlength="140" value="${esc(m.caption || "")}" placeholder="Légende (facultatif)" aria-label="Légende de la photo ${i + 1}">
@@ -1093,6 +1180,7 @@
           <span class="btn-row" style="flex-wrap:nowrap">
             <button type="button" class="icon-btn" data-action="media-move" data-id="${m.id}" data-dir="-1" ${i === 0 ? "disabled" : ""} aria-label="Avancer">${icon("left")}</button>
             <button type="button" class="icon-btn" data-action="media-move" data-id="${m.id}" data-dir="1" ${i === list.length - 1 ? "disabled" : ""} aria-label="Reculer">${icon("right")}</button>
+            ${m.url ? `<button type="button" class="icon-btn" data-action="media-crop" data-id="${m.id}" aria-label="Recadrer la photo ${i + 1}" title="Recadrer">${icon("crop")}</button>` : ""}
             <button type="button" class="icon-btn" data-action="media-ask-delete" data-id="${m.id}" aria-label="Supprimer">${icon("x")}</button></span>
         </div>`}</div>`).join("")}</div>
       ${list.length ? "" : `<div class="empty">Aucune photo pour l'instant.</div>`}
@@ -1159,6 +1247,10 @@
       font_display: v("t-fdisp"), font_body: v("t-fbody"),
       logo_url: v("img-logo_url") || null, hero_image: v("img-hero_image") || null, hero_image_2: v("img-hero_image_2") || null, portrait_image: v("img-portrait_image") || null,
     };
+    // Cadrages : seulement pour les photos encore présentes.
+    const crops = {};
+    Object.keys(CROP_FRAMES).filter((k) => k !== "gallery").forEach((k) => { const c = P.normCrop((S.cropDraft || {})[k]); if (theme[k] && c) crops[k] = c; });
+    theme.crops = Object.keys(crops).length ? crops : null;
     const wa = v("c-wa").replace(/[^0-9]/g, "");
     const insta = v("c-insta");
     if (insta && !/^https:\/\//.test(insta)) return toast("Le lien Instagram doit commencer par https://");
@@ -1573,8 +1665,11 @@
     // ---- Fond : photo du coach si disponible, sinon terrain de padel dessiné
     const photo = tpl === "reserver" || tpl === "avis" ? await loadImg(th.portrait_image || th.hero_image) : null;
     if (photo) {
-      const sc = Math.max(W / photo.width, H / photo.height), pw = photo.width * sc, ph = photo.height * sc;
-      g.drawImage(photo, (W - pw) / 2, (H - ph) / 2 * (story ? .6 : 1), pw, ph);
+      // Même cadrage que sur le site si le coach l'a réglé.
+      const cr = P.normCrop((th.crops || {})[th.portrait_image ? "portrait_image" : "hero_image"]);
+      const sc = Math.max(W / photo.width, H / photo.height) * (cr ? cr.z : 1), pw = photo.width * sc, ph = photo.height * sc;
+      if (cr) g.drawImage(photo, (W - pw) * cr.x / 100, (H - ph) * cr.y / 100, pw, ph);
+      else g.drawImage(photo, (W - pw) / 2, (H - ph) / 2 * (story ? .6 : 1), pw, ph);
       const gr = g.createLinearGradient(0, 0, 0, H);
       gr.addColorStop(0, "rgba(0,0,0,.35)"); gr.addColorStop(.35, "rgba(0,0,0,.05)");
       gr.addColorStop(.55, P.mix(bg, "#000000", .1) + "cc"); gr.addColorStop(1, deep);
@@ -2189,6 +2284,14 @@
     },
     "media-move": (el) => moveMedia(el.dataset.id, +el.dataset.dir),
     "media-ask-delete": (el) => refreshGallery(el.dataset.id),
+    "media-crop": (el) => {
+      const m = S.media.find((x) => x.id === el.dataset.id);
+      if (!m || !m.url) return;
+      openCropper({ url: m.url, crop: m.crop, frames: CROP_FRAMES.gallery, title: "Recadrer la photo", onSave: async (crop) => {
+        try { await S.api.update("media", m.id, { crop }); m.crop = crop; refreshGallery(); toast("Cadrage enregistré"); }
+        catch (err) { toast(errMsg(err)); }
+      } });
+    },
     "media-cancel": () => refreshGallery(),
     "media-delete": async (el) => {
       try { await S.api.remove("media", el.dataset.id); S.media = S.media.filter((m) => m.id !== el.dataset.id); refreshGallery(); toast("Photo supprimée"); }

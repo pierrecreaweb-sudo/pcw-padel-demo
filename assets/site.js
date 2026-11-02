@@ -159,12 +159,13 @@
   function renderHeroMedia() {
     const { coach, theme = {}, content: c = {} } = state.site;
     const main = safeImg(theme.hero_image), inset = safeImg(theme.hero_image_2);
+    const crops = theme.crops || {};
     const badgeTitle = (c.achievements || [])[0] || (c.diplomas || [])[0] || "";
     const badgeSub = (c.diplomas || [])[0] && badgeTitle !== c.diplomas[0] ? c.diplomas[0] : "";
     $("#hero-media").innerHTML = `
-      <figure class="shot shot--main">${main ? `<img src="${esc(main)}" alt="${esc(coach.display_name)}, coach de padel" fetchpriority="high">`
+      <figure class="shot shot--main">${main ? `<img src="${esc(main)}" alt="${esc(coach.display_name)}, coach de padel" fetchpriority="high"${P.cropStyle(crops.hero_image)}>`
         : placeholder("Photo du coach sur le terrain", { mono: !isDemo() })}</figure>
-      ${inset || isDemo() ? `<figure class="shot shot--inset">${inset ? `<img src="${esc(inset)}" alt="${esc(coach.display_name)} pendant un cours" loading="lazy">`
+      ${inset || isDemo() ? `<figure class="shot shot--inset">${inset ? `<img src="${esc(inset)}" alt="${esc(coach.display_name)} pendant un cours" loading="lazy"${P.cropStyle(crops.hero_image_2)}>`
         : placeholder("Photo en cours")}</figure>` : ""}
       ${badgeTitle ? `<div class="hero-badge"><span class="hero-badge__ball" aria-hidden="true"></span><span>${esc(badgeTitle)}${badgeSub ? `<small>${esc(badgeSub)}</small>` : ""}</span></div>` : ""}`;
   }
@@ -190,7 +191,7 @@
     const cls = tileClasses(shown.length);
     $("#gallery").innerHTML = shown.map((g, i) => `
       <button type="button" class="gal-item ${cls[i]}" data-photo="${i}" aria-label="Agrandir : ${esc(g.caption || "photo " + (i + 1))}">
-        ${g.url ? `<img src="${esc(g.url)}" alt="${esc(g.caption || "")}" loading="lazy">` : placeholder(g.caption || "Photo de cours")}
+        ${g.url ? `<img src="${esc(g.url)}" alt="${esc(g.caption || "")}" loading="lazy"${P.cropStyle(g.crop)}>` : placeholder(g.caption || "Photo de cours")}
         ${g.url && g.caption ? `<span class="gal-item__cap">${esc(g.caption)}</span>` : ""}
       </button>`).join("");
     $("#gal-more").innerHTML = items.length > GAL_PREVIEW
@@ -254,7 +255,7 @@
     renderGallery();
 
     $("#portrait").innerHTML = safeImg(theme.portrait_image)
-      ? `<img src="${esc(theme.portrait_image)}" alt="Portrait de ${esc(coach.display_name)}">`
+      ? `<img src="${esc(theme.portrait_image)}" alt="Portrait de ${esc(coach.display_name)}"${P.cropStyle((theme.crops || {}).portrait_image)}>`
       : placeholder("Portrait du coach", { mono: !isDemo() });
     $("#coach-title").textContent = c.intro_title || coach.display_name;
     $("#coach-intro").textContent = c.intro || "";

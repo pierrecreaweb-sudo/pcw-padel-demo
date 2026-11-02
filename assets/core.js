@@ -204,8 +204,21 @@
     return u.toString();
   }
 
+  // Recadrage d'une photo : point gardé au centre (x, y en %) et zoom (1 à 3).
+  // Appliqué à l'affichage par des variables CSS, la photo d'origine n'est pas modifiée.
+  function normCrop(c) {
+    if (!c || typeof c !== "object") return null;
+    const n = (v, lo, hi, d) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
+    const o = { x: Math.round(n(c.x, 0, 100, 50) * 10) / 10, y: Math.round(n(c.y, 0, 100, 50) * 10) / 10, z: Math.round(n(c.z, 1, 3, 1) * 100) / 100 };
+    return o.x === 50 && o.y === 50 && o.z === 1 ? null : o;
+  }
+  function cropStyle(c) {
+    const o = normCrop(c);
+    return o ? ` style="--fx:${o.x}%;--fy:${o.y}%;--fz:${o.z}"` : "";
+  }
+
   const api = {
-    FONTS, fontsUrl, hexToRgb, mix, readableOn, normalizeCalendarUrl,
+    normCrop, cropStyle, FONTS, fontsUrl, hexToRgb, mix, readableOn, normalizeCalendarUrl,
     pad, tzParts, zonedToUtc, localYmd, localHm, addDays, isoWeekday, diffDays, mondayOf,
     DAYS, DAYS_SHORT, MONTHS, cap, fmtTime, hmLabel, fmtYmd, fmtDate, fmtPrice, fmtDuration,
     computeSlots, overlaps, esc, uuid, storage, googleCalendarUrl,

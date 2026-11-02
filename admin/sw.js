@@ -1,6 +1,6 @@
 // Service worker du back-office : met en cache l'interface pour un démarrage rapide
 // et un affichage hors ligne. Les données (Supabase) ne sont jamais mises en cache.
-const CACHE = "pcw-coach-v2";
+const CACHE = "pcw-coach-v3";
 const SHELL = ["./", "./index.html", "./admin.css", "./admin.js", "./icon.svg", "./icon-192.png", "./manifest.webmanifest",
   "../assets/config.js", "../assets/core.js", "../assets/demo-data.js", "../assets/api.js"];
 
