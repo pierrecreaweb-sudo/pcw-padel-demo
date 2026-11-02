@@ -456,3 +456,22 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .t-admin + .t-admin { margin-top: 10px; }
 .t-admin__head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
 .t-note { width: 100%; margin: 0 0 8px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; font-size: 14px; }
+
+/* Kit Instagram */
+.insta__grid { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
+.insta__controls { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.insta__tpls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.insta__tpls button { min-height: 44px; padding: 8px 12px; border-radius: 10px; border: 1.5px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
+.insta__tpls button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: var(--panel); }
+.insta__steps { margin: 0; padding: 14px 14px 14px 34px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); display: grid; gap: 10px; font-size: 14px; color: var(--muted); }
+.insta__steps b { color: var(--ink); }
+.insta__steps .btn { margin-top: 6px; display: flex; width: max-content; }
+.insta__frame { position: relative; justify-self: center; width: 100%; max-width: 300px; aspect-ratio: 9 / 16; border-radius: 26px; padding: 8px; background: #050D1C; box-shadow: 0 24px 50px rgba(14, 42, 82, .25); }
+.insta__frame[data-format="post"] { aspect-ratio: 4 / 5; border-radius: 18px; }
+.insta__frame img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 19px; background: #0E2A52; transition: opacity .2s; }
+.insta__frame[data-format="post"] img { border-radius: 12px; }
+.insta__frame img.is-loading { opacity: .5; }
+@media (max-width: 900px) {
+  .insta__grid { grid-template-columns: minmax(0, 1fr); }
+  .insta__frame { order: -1; max-width: 260px; }
+}

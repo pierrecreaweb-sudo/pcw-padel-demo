@@ -1458,13 +1458,34 @@
           <p class="muted" style="margin:0;font-size:13px;text-align:center">Vos élèves le scannent avec l'appareil photo de leur téléphone et arrivent directement sur la réservation.</p>
           <div class="btn-row" style="justify-content:center">
             <button type="button" class="btn btn--dark" data-action="qr-png">Télécharger le QR code</button>
-            <button type="button" class="btn" data-action="story-png">Image pour story Instagram</button>
             <button type="button" class="btn" data-action="poster-print">Imprimer une affiche</button>
           </div>
         </section>
-      </div>`;
+      </div>
+      <section class="card insta" id="insta" style="margin-top:16px">
+        <h2>Kit Instagram <small>à vos couleurs, mis à jour avec vos créneaux et vos avis</small></h2>
+        <div class="insta__grid">
+          <div class="insta__controls">
+            <div class="field"><span>Visuel</span><div class="insta__tpls" role="group" aria-label="Visuel">
+              ${INSTA_TPLS.map((t) => `<button type="button" data-action="insta-tpl" data-tpl="${t.id}" aria-pressed="${(S.ui.instaTpl || "reserver") === t.id}">${t.label}</button>`).join("")}</div></div>
+            <div class="field"><span>Format</span><div class="seg" role="group" aria-label="Format">
+              <button type="button" data-action="insta-format" data-format="story" aria-pressed="${(S.ui.instaFormat || "story") === "story"}">Story 9:16</button>
+              <button type="button" data-action="insta-format" data-format="post" aria-pressed="${S.ui.instaFormat === "post"}">Post 4:5</button></div></div>
+            <div class="btn-row"><button type="button" class="btn btn--primary" data-action="insta-save">${navigator.share && matchMedia("(pointer: coarse)").matches ? "Partager sur Instagram" : "Télécharger l'image"}</button>
+              <button type="button" class="btn" data-action="insta-caption">Copier la légende</button></div>
+            <ol class="insta__steps">
+              <li><b>Lien en bio</b> : collez votre lien de réservation dans « Modifier le profil › Liens ».
+                <button type="button" class="btn btn--sm" data-action="copy" data-target="share-url">Copier le lien</button></li>
+              <li><b>Story</b> : publiez l'image, puis ajoutez le sticker <b>Lien</b> sur la zone jaune avec votre lien.</li>
+              <li><b>À la une</b> : épinglez la story dans un « À la une » nommé <i>Réserver</i>, elle reste visible sur votre profil.</li>
+            </ol>
+          </div>
+          <div class="insta__frame" data-format="${S.ui.instaFormat || "story"}"><img id="insta-preview" alt="Aperçu du visuel Instagram"></div>
+        </div>
+      </section>`;
   }
   AFTER.partager = (page) => {
+    refreshInstaPreview();
     const ta = page.querySelector("#share-msg");
     ta.addEventListener("input", () => { S.ui.shareMsg = ta.value; });
   };
@@ -1487,35 +1508,241 @@
     if (line) lines.push(line);
     return lines;
   }
-  async function storyImage() {
-    const th = (S.site && S.site.theme) || {};
+  // ========================================================= kit Instagram ===
+  // Visuels prêts à publier, générés aux couleurs du coach : story (1080×1920) ou post (1080×1350).
+  // Les zones haute et basse de la story restent libres pour l'interface d'Instagram et le sticker Lien.
+  const INSTA_TPLS = [
+    { id: "reserver", label: "Réservez" },
+    { id: "creneaux", label: "Créneaux libres" },
+    { id: "avis", label: "Avis élèves" },
+    { id: "qr", label: "QR code" },
+  ];
+  const imgCache = {};
+  function loadImg(src) {
+    if (!src) return Promise.resolve(null);
+    if (imgCache[src]) return imgCache[src];
+    imgCache[src] = new Promise((res) => {
+      const im = new Image();
+      if (/^https?:/.test(src)) im.crossOrigin = "anonymous";
+      im.onload = () => res(im); im.onerror = () => res(null);
+      im.src = src;
+    });
+    return imgCache[src];
+  }
+  async function freeSlotsSoon(max = 6) {
+    const svc = S.services.filter((x) => x.active).sort((a, b) => (a.position || 0) - (b.position || 0))[0];
+    if (!svc) return { svc: null, list: [] };
+    const from = todayYmd(), to = P.addDays ? P.addDays(from, 7) : new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10);
+    let slots = [];
+    try { slots = await S.api.coachSlots(S.coach, svc.id, from, to); } catch { slots = []; }
+    const soon = slots.filter((x) => new Date(x.starts_at) - Date.now() > 2 * 36e5);
+    // Un créneau par demi-journée au plus, pour montrer de la variété.
+    const seen = new Set(), list = [];
+    for (const x of soon) {
+      const d = new Date(x.starts_at), key = dayOf(x.starts_at) + (P.tzParts(d, tz()).h < 13 ? "am" : "pm");
+      if (seen.has(key)) continue;
+      seen.add(key); list.push(x);
+      if (list.length >= max) break;
+    }
+    return { svc, list };
+  }
+  async function instaImage(tpl, format) {
+    const th = (S.site && S.site.theme) || {}, ct = (S.site && S.site.content) || {};
     const bg = P.hexToRgb(th.primary) ? th.primary : "#0E2A52", accent = P.hexToRgb(th.accent) ? th.accent : "#E4F55B";
-    const on = P.readableOn(bg);
-    const W = 1080, H = 1920, cv = document.createElement("canvas");
-    cv.width = W; cv.height = H;
+    const onAccent = P.readableOn(accent);
+    const W = 1080, H = format === "post" ? 1350 : 1920, story = format !== "post";
+    const top = story ? 230 : 90, bottom = story ? H - 300 : H - 90;
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
     const g = cv.getContext("2d");
     try { await document.fonts.ready; } catch { /* polices facultatives */ }
     const disp = `"${th.font_display || "Archivo"}", "Arial Narrow", sans-serif`, body = `"${th.font_body || "Hanken Grotesk"}", sans-serif`;
-    g.fillStyle = bg; g.fillRect(0, 0, W, H);
-    // Lignes de court en fond.
-    g.strokeStyle = on === "#FFFFFF" ? "rgba(255,255,255,.12)" : "rgba(0,0,0,.08)"; g.lineWidth = 6;
-    g.strokeRect(90, 120, W - 180, H - 240); g.beginPath(); g.moveTo(90, H / 2); g.lineTo(W - 90, H / 2); g.moveTo(W / 2, 120); g.lineTo(W / 2, H - 120); g.stroke();
-    g.fillStyle = accent; g.beginPath(); g.arc(W / 2, 300, 46, 0, Math.PI * 2); g.fill();
-    g.textAlign = "center"; g.fillStyle = on;
-    g.font = `800 52px ${body}`; g.fillText((th.logo_text || S.coach.display_name).toUpperCase(), W / 2, 450);
-    g.font = `900 112px ${disp}`; g.fillStyle = accent;
-    wrapText(g, "RÉSERVEZ VOTRE COURS", W - 200).forEach((l, i) => g.fillText(l, W / 2, 620 + i * 118));
-    const qr = qrCanvas(bookingUrl(), "#0F1B30", 620);
-    const box = qr.width + 60, bx = (W - box) / 2, by = 900;
-    g.fillStyle = "#FFFFFF"; g.beginPath(); g.roundRect ? g.roundRect(bx, by, box, box, 36) : g.rect(bx, by, box, box); g.fill();
-    g.drawImage(qr, bx + 30, by + 30);
-    g.fillStyle = on; g.font = `700 46px ${body}`;
-    g.fillText("Scannez ou touchez le lien", W / 2, by + box + 110);
-    g.font = `500 36px ${body}`; g.globalAlpha = .8;
-    g.fillText(bookingUrl().replace(/^https:\/\//, "").replace(/#reserver$/, ""), W / 2, by + box + 170);
-    g.globalAlpha = 1;
+    const brand = (th.logo_text || S.coach.display_name).toUpperCase();
+    const shortUrl = bookingUrl().replace(/^https:\/\//, "").replace(/\/?#reserver$/, "").replace(/\/$/, "");
+    const rr = (x, y, w, h, r) => { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); };
+    const deep = P.mix(bg, "#000000", .45);
+
+    // ---- Fond : photo du coach si disponible, sinon terrain de padel dessiné
+    const photo = tpl === "reserver" || tpl === "avis" ? await loadImg(th.portrait_image || th.hero_image) : null;
+    if (photo) {
+      const sc = Math.max(W / photo.width, H / photo.height), pw = photo.width * sc, ph = photo.height * sc;
+      g.drawImage(photo, (W - pw) / 2, (H - ph) / 2 * (story ? .6 : 1), pw, ph);
+      const gr = g.createLinearGradient(0, 0, 0, H);
+      gr.addColorStop(0, "rgba(0,0,0,.35)"); gr.addColorStop(.35, "rgba(0,0,0,.05)");
+      gr.addColorStop(.55, P.mix(bg, "#000000", .1) + "cc"); gr.addColorStop(1, deep);
+      g.fillStyle = gr; g.fillRect(0, 0, W, H);
+    } else {
+      const gr = g.createRadialGradient(W * .8, H * .1, 50, W * .5, H * .4, H * .9);
+      gr.addColorStop(0, P.mix(bg, "#4F8EF7", .35)); gr.addColorStop(.5, bg); gr.addColorStop(1, deep);
+      g.fillStyle = gr; g.fillRect(0, 0, W, H);
+      // Terrain en perspective
+      g.save(); g.strokeStyle = "rgba(255,255,255,.14)"; g.lineWidth = 5;
+      const cy = H * (story ? .62 : .58), ch = H * .42, tw = W * .5, bw = W * 1.3;
+      const L = (t) => W / 2 - (tw + (bw - tw) * t) / 2, R = (t) => W / 2 + (tw + (bw - tw) * t) / 2, Y = (t) => cy + ch * t;
+      g.beginPath(); g.moveTo(L(0), Y(0)); g.lineTo(R(0), Y(0)); g.lineTo(R(1), Y(1)); g.lineTo(L(1), Y(1)); g.closePath(); g.stroke();
+      [[.18], [.82]].forEach(([t]) => { g.beginPath(); g.moveTo(L(t), Y(t)); g.lineTo(R(t), Y(t)); g.stroke(); });
+      g.beginPath(); g.moveTo(W / 2, Y(.18)); g.lineTo(W / 2, Y(.82)); g.stroke();
+      g.lineWidth = 9; g.strokeStyle = "rgba(255,255,255,.22)"; g.beginPath(); g.moveTo(L(.5) - 20, Y(.5)); g.lineTo(R(.5) + 20, Y(.5)); g.stroke();
+      g.restore();
+      // Balle
+      const bx = W - 150, by = top + 190, br = 58;
+      if (tpl !== "qr") {
+      g.save(); g.shadowColor = accent; g.shadowBlur = 60; g.fillStyle = accent; g.beginPath(); g.arc(bx, by, br, 0, Math.PI * 2); g.fill(); g.restore();
+      g.save(); g.strokeStyle = "rgba(255,255,255,.75)"; g.lineWidth = 6; g.beginPath(); g.arc(bx - br * 1.15, by, br * .95, -.75, .75); g.stroke();
+      g.beginPath(); g.arc(bx + br * 1.15, by, br * .95, Math.PI - .75, Math.PI + .75); g.stroke(); g.restore();
+      }
+    }
+
+    // ---- En-tête : marque du coach
+    g.textBaseline = "alphabetic"; g.textAlign = "left";
+    g.fillStyle = accent; g.beginPath(); g.arc(98, top + 2, 20, 0, Math.PI * 2); g.fill();
+    g.fillStyle = "#FFFFFF"; g.font = `800 40px ${body}`;
+    try { g.letterSpacing = "4px"; } catch { /* navigateur ancien */ }
+    g.fillText(brand, 136, top + 16);
+    try { g.letterSpacing = "0px"; } catch { /* idem */ }
+    if (ct.city || S.coach.city) { g.globalAlpha = .75; g.font = `600 32px ${body}`; g.fillText(`Coach de padel · ${ct.city || S.coach.city}`, 80, top + 70); g.globalAlpha = 1; }
+
+    // ---- Bas : appel à réserver + emplacement du sticker Lien
+    const ctaBlock = (y) => {
+      g.textAlign = "center";
+      g.fillStyle = "#FFFFFF"; g.font = `700 40px ${body}`;
+      g.fillText(story ? "Réservez en 1 minute ↓" : "Réservez en 1 minute", W / 2, y);
+      const pill = shortUrl, pw = Math.min(W - 160, g.measureText(pill).width + 120);
+      g.font = `700 38px ${body}`;
+      const tw = Math.min(W - 200, g.measureText(pill).width);
+      const w = tw + 110;
+      rr((W - w) / 2, y + 30, w, 92, 46); g.fillStyle = accent; g.fill();
+      g.fillStyle = onAccent; g.fillText(pill, W / 2, y + 90, W - 220);
+      g.textAlign = "left";
+      return pw;
+    };
+    const summary = ratingSummary();
+    const ratingChip = (x, y) => {
+      if (!summary.count) return 0;
+      const txt = `${summary.label} · ${summary.count} avis vérifiés`;
+      g.font = `700 36px ${body}`;
+      const w = g.measureText(txt).width + 120;
+      rr(x, y, w, 76, 38); g.fillStyle = "rgba(255,255,255,.14)"; g.fill();
+      g.fillStyle = "#FFB800"; g.font = `40px ${body}`; g.fillText("★", x + 30, y + 52);
+      g.fillStyle = "#FFFFFF"; g.font = `700 36px ${body}`; g.fillText(txt, x + 80, y + 51);
+      return w;
+    };
+
+    if (tpl === "reserver") {
+      let y = story ? (photo ? H * .5 : top + 330) : (photo ? H * .42 : top + 230);
+      g.fillStyle = "#FFFFFF"; g.font = `900 ${story ? 132 : 112}px ${disp}`;
+      const lines = ["RÉSERVEZ", "VOTRE COURS", "DE PADEL"];
+      lines.forEach((l, i) => {
+        if (i === 2) { const w = g.measureText(l).width; rr(70, y - (story ? 112 : 96), w + 40, story ? 134 : 116, 18); g.fillStyle = accent; g.fill(); g.fillStyle = onAccent; g.fillText(l, 90, y); }
+        else { g.fillStyle = "#FFFFFF"; g.fillText(l, 80, y); }
+        y += story ? 136 : 116;
+      });
+      y += 10;
+      g.font = `500 38px ${body}`; g.fillStyle = "rgba(255,255,255,.85)";
+      g.fillText("En ligne, 24 h/24 · confirmation immédiate", 80, y); y += 50;
+      if (ratingChip(80, y)) y += 110; else y += 30;
+      // Prestations (3 max)
+      const svcs = S.services.filter((x) => x.active).sort((a, b) => (a.position || 0) - (b.position || 0)).slice(0, story ? 3 : 2);
+      for (const sv of svcs) {
+        if (y > bottom - 260) break;
+        rr(80, y, W - 160, 84, 22); g.fillStyle = "rgba(255,255,255,.10)"; g.fill();
+        g.fillStyle = "#FFFFFF"; g.font = `700 34px ${body}`; g.fillText(sv.name, 112, y + 54, W - 440);
+        g.textAlign = "right"; g.fillStyle = accent; g.font = `800 34px ${body}`;
+        g.fillText(`${P.fmtPrice(sv.price_cents)} · ${P.fmtDuration(sv.duration_minutes)}`, W - 112, y + 54); g.textAlign = "left";
+        y += 100;
+      }
+      ctaBlock(bottom - 140);
+    } else if (tpl === "creneaux") {
+      const { svc, list } = await freeSlotsSoon(story ? 6 : 4);
+      let y = top + (story ? 230 : 170);
+      g.fillStyle = accent; g.font = `800 38px ${body}`;
+      try { g.letterSpacing = "6px"; } catch { /* */ }
+      g.fillText("CETTE SEMAINE", 80, y); try { g.letterSpacing = "0px"; } catch { /* */ }
+      y += story ? 130 : 110;
+      g.fillStyle = "#FFFFFF"; g.font = `900 ${story ? 112 : 96}px ${disp}`;
+      ["IL RESTE", "DES PLACES"].forEach((l) => { g.fillText(l, 80, y); y += story ? 116 : 100; });
+      if (svc) { g.font = `600 36px ${body}`; g.fillStyle = "rgba(255,255,255,.8)"; g.fillText(`${svc.name} · ${P.fmtPrice(svc.price_cents)}`, 80, y + 10); }
+      y += 70;
+      if (list.length) {
+        // Autant de créneaux que la place le permet au-dessus du bouton de réservation.
+        const room = Math.max(1, Math.floor((bottom - 230 - y) / 122));
+        for (const x of list.slice(0, room)) {
+          const d = new Date(x.starts_at);
+          rr(80, y, W - 160, 104, 26); g.fillStyle = "#FFFFFF"; g.fill();
+          rr(80, y, 16, 104, [26, 0, 0, 26]); g.fillStyle = accent; g.fill();
+          g.fillStyle = "#0F1B30"; g.font = `800 40px ${body}`;
+          g.fillText(P.cap(P.fmtDate(d, tz(), "short")), 130, y + 66);
+          g.textAlign = "right"; g.font = `900 46px ${disp}`; g.fillStyle = bg;
+          g.fillText(P.fmtTime(d, tz()).replace(":", " h "), W - 120, y + 68); g.textAlign = "left";
+          y += 122;
+        }
+        g.font = `600 32px ${body}`; g.fillStyle = "rgba(255,255,255,.7)";
+        g.fillText("Premiers arrivés, premiers servis !", 80, y + 30);
+      } else {
+        g.font = `600 40px ${body}`; g.fillStyle = "#FFFFFF";
+        wrapText(g, "Planning en cours de mise à jour : réservez dès maintenant vos prochaines séances.", W - 160).forEach((l, i) => g.fillText(l, 80, y + 40 + i * 54));
+      }
+      ctaBlock(bottom - 140);
+    } else if (tpl === "avis") {
+      const best = [...S.reviews].filter((r) => r.status === "published" && r.comment && r.rating >= 4)
+        .sort((a, b) => b.rating - a.rating || (b.comment.length > 40) - (a.comment.length > 40) || b.created_at.localeCompare(a.created_at))[0];
+      let y = story ? H * .34 : top + 270;
+      g.fillStyle = accent; g.font = `900 260px ${disp}`; g.fillText("“", 60, y + 60);
+      y += 90;
+      if (best) {
+        g.fillStyle = "#FFFFFF"; g.font = `800 ${story ? 62 : 54}px ${disp}`;
+        const lines = wrapText(g, best.comment.length > 190 ? best.comment.slice(0, 187).replace(/\s+\S*$/, "") + "…" : best.comment, W - 170).slice(0, story ? 7 : 5);
+        lines.forEach((l) => { g.fillText(l, 80, y); y += story ? 76 : 66; });
+        y += 30;
+        g.fillStyle = "#FFB800"; g.font = `52px ${body}`; g.fillText("★".repeat(best.rating) + "☆".repeat(5 - best.rating), 80, y);
+        g.fillStyle = "rgba(255,255,255,.85)"; g.font = `700 36px ${body}`;
+        g.fillText(`${best.author_name}${best.service_name ? " · " + best.service_name : ""}`, 80, y + 62);
+        y += 120;
+      } else {
+        g.fillStyle = "#FFFFFF"; g.font = `800 60px ${disp}`;
+        ["Vos premiers avis", "apparaîtront ici"].forEach((l) => { g.fillText(l, 80, y); y += 74; });
+        y += 40;
+      }
+      ratingChip(80, y);
+      ctaBlock(bottom - 140);
+    } else {
+      // QR code
+      let y = top + (story ? 260 : 250);
+      g.textAlign = "center"; g.fillStyle = "#FFFFFF"; g.font = `900 ${story ? 112 : 92}px ${disp}`;
+      ["RÉSERVEZ", "VOTRE COURS"].forEach((l) => { g.fillText(l, W / 2, y); y += story ? 116 : 96; });
+      g.font = `500 38px ${body}`; g.fillStyle = "rgba(255,255,255,.85)";
+      g.fillText("Scannez avec l'appareil photo", W / 2, y + 6);
+      const size = story ? 600 : 380;
+      const qr = qrCanvas(bookingUrl(), "#0F1B30", size);
+      const box = qr.width + 64, bx = (W - box) / 2, by = y + 60;
+      g.save(); g.shadowColor = "rgba(0,0,0,.35)"; g.shadowBlur = 50; rr(bx, by, box, box, 40); g.fillStyle = "#FFFFFF"; g.fill(); g.restore();
+      g.drawImage(qr, bx + 32, by + 32);
+      // Balle au centre du QR
+      g.fillStyle = accent; g.beginPath(); g.arc(W / 2, by + box / 2, 40, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = "#FFFFFF"; g.lineWidth = 10; g.stroke();
+      g.textAlign = "left";
+      ctaBlock(Math.min(bottom - 140, by + box + 110));
+    }
     return new Promise((res) => cv.toBlob(res, "image/png"));
   }
+  let instaRun = 0;
+  async function refreshInstaPreview() {
+    const img = document.getElementById("insta-preview");
+    if (!img) return;
+    const run = ++instaRun;
+    img.classList.add("is-loading");
+    const blob = await instaImage(S.ui.instaTpl || "reserver", S.ui.instaFormat || "story");
+    if (run !== instaRun || !document.body.contains(img)) return;
+    if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+    img.dataset.url = URL.createObjectURL(blob);
+    img.src = img.dataset.url;
+    img.classList.remove("is-loading");
+    S.ui.instaBlob = blob;
+  }
+  const instaCaption = () => {
+    const city = ((S.site && S.site.content && S.site.content.city) || S.coach.city || "").trim();
+    const tag = city ? " #padel" + city.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]/g, "") : "";
+    return `🎾 Réservez votre cours de padel en ligne, 24 h/24 : choisissez votre séance et votre créneau, c'est confirmé tout de suite.\n👉 Lien en bio\n\n#padel #coachpadel #coursdepadel${tag}`;
+  };
   function printPoster() {
     let area = document.getElementById("print-area");
     if (!area) { area = document.createElement("div"); area.id = "print-area"; document.body.appendChild(area); }
@@ -1728,6 +1955,7 @@
       <line class="chart__grid" x1="${padL}" x2="${W - padL}" y1="${padT}" y2="${padT}"/><text class="chart__max" x="${padL}" y="${padT - 6}">${esc(euros(max))}</text>
       <line class="chart__base" x1="${padL}" x2="${W - padL}" y1="${H - padB}" y2="${H - padB}"/>${bars}</svg>`;
   }
+  const REVENUE_LABEL = { week: "Revenu de la semaine", month: "Revenu du mois", year: "Revenu de l'année" };
   function viewStats() {
     const kind = S.ui.statsKind || "month", anchor = S.ui.statsAnchor || todayYmd();
     if (!S.allBookings) return `<div class="page__head"><div><h1>Statistiques</h1></div></div><section class="card"><div class="empty">Chargement des statistiques…</div></section>`;
@@ -1745,7 +1973,7 @@
           <button class="icon-btn" data-action="stats-move" data-dir="1" aria-label="Période suivante" ${isCurrent ? "disabled" : ""}>${icon("right")}</button>
         </div></div>
       <div class="kpis kpis--stats">
-        <div class="kpi"><span class="kpi__label">${{ week: "Revenu de la semaine", month: "Revenu du mois", year: "Revenu de l'année" }[kind]}</span>
+        <div class="kpi"><span class="kpi__label">${REVENUE_LABEL[kind]}</span>
           <span class="kpi__value num">${euros(st.revenue)}</span>
           <span class="kpi__sub">${euros(st.paid)} encaissés · ${euros(st.toCollect)} à encaisser${st.planned ? ` · ${euros(st.planned)} à venir` : ""}</span></div>
         <div class="kpi"><span class="kpi__label">Rétrocession aux clubs</span><span class="kpi__value num">${euros(st.retro)}</span>
@@ -1982,7 +2210,27 @@
       const cv = qrCanvas(bookingUrl(), brandColor(), 1200);
       cv.toBlob((b) => saveBlob(b, `qr-reservation-${S.coach.slug}.png`, "QR code de réservation"), "image/png");
     },
-    "story-png": async () => { const b = await storyImage(); await saveBlob(b, `story-reservation-${S.coach.slug}.png`, "Story Instagram"); },
+    "story-png": async () => { const b = await instaImage("reserver", "story"); await saveBlob(b, `story-reservation-${S.coach.slug}.png`, "Story Instagram"); },
+    "insta-tpl": (el) => {
+      S.ui.instaTpl = el.dataset.tpl;
+      document.querySelectorAll('[data-action="insta-tpl"]').forEach((b) => b.setAttribute("aria-pressed", String(b === el)));
+      refreshInstaPreview();
+    },
+    "insta-format": (el) => {
+      S.ui.instaFormat = el.dataset.format;
+      document.querySelectorAll('[data-action="insta-format"]').forEach((b) => b.setAttribute("aria-pressed", String(b === el)));
+      const fr = document.querySelector(".insta__frame"); if (fr) fr.dataset.format = el.dataset.format;
+      refreshInstaPreview();
+    },
+    "insta-save": async () => {
+      const tpl = S.ui.instaTpl || "reserver", fmt = S.ui.instaFormat || "story";
+      const b = S.ui.instaBlob || await instaImage(tpl, fmt);
+      await saveBlob(b, `instagram-${tpl}-${fmt}-${S.coach.slug}.png`, "Instagram");
+    },
+    "insta-caption": async () => {
+      try { await navigator.clipboard.writeText(instaCaption()); toast("Légende copiée"); }
+      catch { toast("Copie impossible sur ce navigateur"); }
+    },
     "poster-print": () => printPoster(),
     // avis
     "rev-filter": (el) => { S.ui.revFilter = el.dataset.f; S.ui.revLimit = 10; render(); },
