@@ -1228,7 +1228,9 @@
           <section class="card"><h2>Mon site</h2>
             <div class="field"><span>Adresse de votre site</span><input type="text" id="site-url" readonly value="${esc(c.custom_domain ? "https://" + c.custom_domain : siteUrl)}"></div>
             <div class="btn-row" style="margin-top:8px"><button class="btn btn--sm" data-action="copy" data-target="site-url">Copier</button>
-            ${pill(c.status === "live" ? "confirmed" : "pending", c.status === "live" ? "En ligne" : c.status === "draft" ? "Brouillon" : "Suspendu")}</div></section>
+            ${pill(c.status === "live" ? "confirmed" : "pending", c.status === "live" ? "En ligne" : c.status === "draft" ? "Brouillon" : "Suspendu")}</div>
+            <label class="switch" style="margin-top:14px"><span><b>Apparaître dans l'annuaire PCW</b><small>Les élèves vous trouvent par ville ou par club sur <a href="https://pcwpadel.fr/coachs/" target="_blank" rel="noopener">pcwpadel.fr/coachs</a>, avec un lien direct vers votre réservation.${c.status !== "live" ? " Visible dès la mise en ligne de votre site." : ""}</small></span>
+              <input type="checkbox" id="s-directory" ${c.directory_listed !== false ? "checked" : ""}></label></section>
           <section class="card" id="pcw-avis"><h2>Votre avis sur PCW Padel Coach</h2><p class="muted" style="margin:0">Chargement…</p></section>
           ${S.isAdmin ? `<section class="card" id="pcw-avis-admin" style="border-color:var(--accent)"><h2>Avis des coachs <small>visible par l'équipe PCW seulement</small></h2><p class="muted" style="margin:0">Chargement…</p></section>` : ""}
           ${S.isAdmin ? `<section class="card" style="border-color:var(--accent)"><h2>Plateforme PCW <small>visible par l'équipe PCW seulement</small></h2>
@@ -1285,6 +1287,13 @@
         } catch (err) { toast(errMsg(err)); btn.disabled = false; btn.textContent = "Créer le coach"; }
       });
     }
+    const dir = page.querySelector("#s-directory");
+    if (dir) dir.addEventListener("change", async () => {
+      try {
+        Object.assign(S.coach, await S.api.updateCoach(S.coach.id, { directory_listed: dir.checked }));
+        toast(dir.checked ? "Vous apparaissez dans l'annuaire" : "Vous n'apparaissez plus dans l'annuaire");
+      } catch (err) { dir.checked = !dir.checked; toast(errMsg(err)); }
+    });
     page.querySelector("#notif-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const v = page.querySelector("#s-notify").value.trim().toLowerCase();
