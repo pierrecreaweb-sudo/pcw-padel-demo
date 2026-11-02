@@ -475,3 +475,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .insta__grid { grid-template-columns: minmax(0, 1fr); }
   .insta__frame { order: -1; max-width: 260px; }
 }
+
+/* Marque PCW Padel Coach sur l'écran de connexion */
+.login__brand img { width: 36px; height: 36px; border-radius: 9px; flex: none; }
+.login__brand span { display: grid; gap: 3px; }
+.login__brand small { font: 700 11px/1 var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }

@@ -73,7 +73,7 @@
       <p class="eyebrow eyebrow--brand">${esc(name)}</p>
       <h1 class="h2">Conditions de réservation</h1>
       <p class="updated">Ces conditions s'appliquent à toute séance réservée sur ce site.</p>
-      <nav aria-label="Sommaire"><a href="#reservation">Réservation</a><a href="#donnees">Données personnelles</a><a href="#mentions">Mentions légales</a></nav>
+      <nav aria-label="Sommaire"><a href="#reservation">Réservation</a><a href="#avis">Avis</a><a href="#donnees">Données personnelles</a><a href="#mentions">Mentions légales</a></nav>
 
       <section id="reservation">
         <h2>Réservation et annulation</h2>
@@ -89,11 +89,18 @@
         ${extra ? `<h3>Conditions particulières</h3><p>${esc(extra).replace(/\n/g, "<br>")}</p>` : ""}
       </section>
 
+      <section id="avis">
+        <h2>Avis des joueurs</h2>
+        <p><strong>Qui peut laisser un avis :</strong> uniquement un joueur dont la séance a eu lieu. Environ 2 heures après la séance, il reçoit par email un lien personnel pour la noter de 1 à 5 étoiles et, s'il le souhaite, laisser un commentaire. Ce lien n'est valable que pour cette séance, pendant 60 jours. Aucune contrepartie n'est proposée en échange d'un avis.</p>
+        <p><strong>Ce qui est publié :</strong> la note, le commentaire, le prénom et l'initiale du nom, la prestation et la date de la séance. Les avis sont affichés du plus récent au plus ancien, et la note globale est la moyenne de tous les avis publiés.</p>
+        <p><strong>Contrôle :</strong> ${esc(name)} peut répondre publiquement à un avis mais ne peut ni le modifier ni le supprimer. Il peut signaler un avis abusif à Pierre Créa Web, qui le retire seulement s'il est illicite, injurieux, sans lien avec une séance réelle ou s'il contient des données personnelles d'un tiers. L'auteur peut modifier son avis pendant 7 jours et demander sa suppression à tout moment.</p>
+      </section>
+
       <section id="donnees">
         <h2>Données personnelles</h2>
         <p><strong>Responsable du traitement :</strong> ${esc(legal)}${c.siret ? `, SIRET ${esc(c.siret)}` : ""}.</p>
         <p><strong>Données collectées :</strong> nom, prénom, email, téléphone, niveau de jeu, messages, ainsi que l'historique de vos séances.</p>
-        <p><strong>Pourquoi :</strong> organiser vos séances (confirmation, rappel, modification) et répondre à vos messages. Ces données ne sont ni vendues ni utilisées à des fins publicitaires.</p>
+        <p><strong>Pourquoi :</strong> organiser vos séances (confirmation, rappel, modification) et répondre à vos messages ; vous proposer de noter votre séance et publier votre avis si vous en laissez un (voir « Avis des joueurs »). Ces données ne sont ni vendues ni utilisées à des fins publicitaires.</p>
         <p><strong>Qui y a accès :</strong> uniquement ${esc(name)}, ainsi que les prestataires techniques qui font fonctionner le site (hébergement, envoi des emails), dans la limite de leur mission.</p>
         <p><strong>Durée de conservation :</strong> 3 ans après votre dernière séance ou votre dernier échange, puis suppression.</p>
         <p><strong>Vos droits :</strong> vous pouvez accéder à vos données, les corriger, demander leur suppression ou vous opposer à leur utilisation, ${contactLine}. Vous pouvez aussi adresser une réclamation à la CNIL (cnil.fr).</p>

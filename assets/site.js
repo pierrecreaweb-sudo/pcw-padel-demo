@@ -302,6 +302,15 @@
     }
 
     $("#footer-name").textContent = `© ${new Date().getFullYear()} ${coach.display_name}`;
+    // Badge PCW : lien de parrainage et version claire ou sombre selon la couleur du pied de page.
+    const badge = document.getElementById("pcw-badge");
+    if (badge) {
+      badge.href = `https://pcwpadel.fr/?ref=${encodeURIComponent(coach.slug)}`;
+      const bg = getComputedStyle(badge.closest("footer") || document.body).backgroundColor.match(/\d+(\.\d+)?/g) || [255, 255, 255];
+      const lum = (0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2]) / 255;
+      // Fond sombre : badge clair qui ressort ; fond clair : badge marine.
+      badge.classList.toggle("pcw-badge--dark", lum > 0.5);
+    }
   }
 
   // ------------------------------------------------------- réservation ---

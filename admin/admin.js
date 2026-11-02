@@ -244,7 +244,7 @@
   function renderLogin(msg = "", kind = "err") {
     const demo = S.api.mode === "demo";
     app.innerHTML = `<div class="login"><div class="login__card">
-      <div class="login__brand"><span class="dot"></span>ESPACE COACH</div>
+      <div class="login__brand"><img src="icon.svg" width="36" height="36" alt=""><span><small>PCW Padel Coach</small>Espace coach</span></div>
       <h1>Connexion</h1>
       <p>${demo ? "Démo : cliquez sur « Se connecter », aucun mot de passe n'est demandé." : "Gérez vos réservations, votre agenda et votre site."}</p>
       <form id="login-form" novalidate>
@@ -268,7 +268,7 @@
     });
   }
   function renderRecovery(msg = "") {
-    app.innerHTML = `<div class="login"><div class="login__card"><div class="login__brand"><span class="dot"></span>ESPACE COACH</div>
+    app.innerHTML = `<div class="login"><div class="login__card"><div class="login__brand"><img src="icon.svg" width="36" height="36" alt=""><span><small>PCW Padel Coach</small>Espace coach</span></div>
       <h1>Nouveau mot de passe</h1><p>Choisissez un mot de passe d'au moins 8 caractères.</p>
       <form id="pw-form"><label class="field"><span>Mot de passe</span><input type="password" id="pw1" autocomplete="new-password" minlength="8" required></label>
       ${msg ? `<div class="alert alert--err">${esc(msg)}</div>` : ""}
@@ -1229,7 +1229,7 @@
             <div class="field"><span>Adresse de votre site</span><input type="text" id="site-url" readonly value="${esc(c.custom_domain ? "https://" + c.custom_domain : siteUrl)}"></div>
             <div class="btn-row" style="margin-top:8px"><button class="btn btn--sm" data-action="copy" data-target="site-url">Copier</button>
             ${pill(c.status === "live" ? "confirmed" : "pending", c.status === "live" ? "En ligne" : c.status === "draft" ? "Brouillon" : "Suspendu")}</div>
-            <label class="switch" style="margin-top:14px"><span><b>Apparaître dans l'annuaire PCW</b><small>Les élèves vous trouvent par ville ou par club sur <a href="https://pcwpadel.fr/coachs/" target="_blank" rel="noopener">pcwpadel.fr/coachs</a>, avec un lien direct vers votre réservation.${c.status !== "live" ? " Visible dès la mise en ligne de votre site." : ""}</small></span>
+            <label class="switch" style="margin-top:14px"><span><b>Apparaître dans l'annuaire PCW</b><small>Les élèves vous trouvent par ville ou par club dans l'annuaire des coachs PCW, avec un lien direct vers votre réservation.${c.status !== "live" ? " Visible dès la mise en ligne de votre site." : ""}</small></span>
               <input type="checkbox" id="s-directory" ${c.directory_listed !== false ? "checked" : ""}></label></section>
           <section class="card" id="pcw-avis"><h2>Votre avis sur PCW Padel Coach</h2><p class="muted" style="margin:0">Chargement…</p></section>
           ${S.isAdmin ? `<section class="card" id="pcw-avis-admin" style="border-color:var(--accent)"><h2>Avis des coachs <small>visible par l'équipe PCW seulement</small></h2><p class="muted" style="margin:0">Chargement…</p></section>` : ""}

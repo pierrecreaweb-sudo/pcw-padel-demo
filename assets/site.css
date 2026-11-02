@@ -424,3 +424,17 @@ a { color: inherit; }
   .lightbox__nav--prev { left: 16px; } .lightbox__nav--next { right: 16px; }
   .lightbox__stage { padding: 0 8px 80px; }
 }
+
+/* Badge « Site propulsé par PCW Padel Coach » (pied de page) : version claire ou sombre selon le fond */
+.pcw-badge { display: inline-flex; align-items: center; gap: 9px; padding: 7px 14px 7px 10px; border-radius: 999px; text-decoration: none; font-size: 13px; line-height: 1; white-space: nowrap;
+  background: #FFFFFF; color: #0E1B2C; border: 1px solid #E3E7EC; transition: transform .2s, box-shadow .2s; }
+.pcw-badge b { font-weight: 800; }
+.pcw-badge__mark { width: 15px; height: 18px; flex: none; }
+.pcw-badge__mark--on-dark { display: none; }
+.pcw-badge--dark { background: #0E1B2C; color: #FFFFFF; border-color: rgba(255, 255, 255, .14); }
+.pcw-badge--dark .pcw-badge__mark--on-light { display: none; }
+.pcw-badge--dark .pcw-badge__mark--on-dark { display: block; }
+.footer a.pcw-badge { color: #0E1B2C; }
+.footer a.pcw-badge--dark { color: #FFFFFF; }
+.pcw-badge:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(0, 0, 0, .18); }
+@media (max-width: 560px) { .footer__made { margin-left: 0; } }
