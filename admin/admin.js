@@ -964,6 +964,8 @@
           <a href="#s-avis" data-scroll>Témoignages</a><a href="#s-contact" data-scroll>Contact</a><a href="#s-seo" data-scroll>Référencement</a></nav>
         <form class="site-sections" id="site-form" novalidate>
           ${sec("s-identite", "Identité visuelle", `<div class="form-grid">
+            <label class="field"><span>Nom du coach <small>(haut de la page d'accueil, annuaire, emails)</small></span><input type="text" id="co-name" maxlength="60" required value="${esc(S.coach.display_name || "")}" autocomplete="name"></label>
+            <label class="field"><span>Ville</span><input type="text" id="co-city" maxlength="60" value="${esc(S.coach.city || "")}" placeholder="Montauban"></label>
             <label class="field"><span>Nom affiché en logo</span><input type="text" id="t-logo" maxlength="40" value="${esc(th.logo_text || "")}"></label>
             ${upload("logo_url", "Logo <small>(remplace le texte)</small>", th.logo_url)}
             <label class="field"><span>Couleur principale</span><span class="color-row"><input type="color" id="t-primary" value="${esc(th.primary || "#0E2A52")}"><input type="text" id="t-primary-hex" value="${esc(th.primary || "#0E2A52")}" maxlength="7"></span></label>
@@ -1242,7 +1244,7 @@
     const lines = (id) => v(id).split("\n").map((x) => x.trim()).filter(Boolean);
     const hex = (id, fb) => /^#[0-9a-f]{6}$/i.test(v(id)) ? v(id).toUpperCase() : fb;
     const theme = {
-      ...(S.site.theme || {}), logo_text: v("t-logo") || S.coach.display_name.toUpperCase(),
+      ...(S.site.theme || {}), logo_text: v("t-logo") || (v("co-name") || S.coach.display_name).toUpperCase(),
       primary: hex("t-primary-hex", "#0E2A52"), accent: hex("t-accent-hex", "#E4F55B"),
       font_display: v("t-fdisp"), font_body: v("t-fbody"),
       logo_url: v("img-logo_url") || null, hero_image: v("img-hero_image") || null, hero_image_2: v("img-hero_image_2") || null, portrait_image: v("img-portrait_image") || null,
@@ -1262,9 +1264,18 @@
       phone: v("c-phone") || null, email: v("c-email") || null, whatsapp: wa || null, instagram: insta || null,
       legal_name: v("c-legal") || null, siret: v("c-siret") || null, conditions_extra: v("c-cond") || null, seo_title: v("c-seot"), seo_description: v("c-seod"),
     };
+    const name = v("co-name").replace(/\s+/g, " "), city = v("co-city").replace(/\s+/g, " ");
+    if (name.length < 2) { document.getElementById("co-name").focus(); return toast("Indiquez le nom du coach."); }
     const btn = e.target.querySelector("button[type=submit]");
     btn.disabled = true; btn.textContent = "Enregistrement…";
-    try { S.site = await S.api.saveSiteContent(S.coach.id, { theme, content }); toast("Site mis à jour"); }
+    try {
+      if (name !== S.coach.display_name || (city || null) !== (S.coach.city || null)) {
+        Object.assign(S.coach, await S.api.updateCoach(S.coach.id, { display_name: name, city: city || null }));
+        const sb = document.querySelector(".side__brand span:last-child");
+        if (sb) sb.textContent = S.coach.display_name.toUpperCase();
+      }
+      S.site = await S.api.saveSiteContent(S.coach.id, { theme, content }); toast("Site mis à jour");
+    }
     catch (err) { toast(errMsg(err)); }
     btn.disabled = false; btn.textContent = "Enregistrer";
   }
@@ -1301,7 +1312,7 @@
     const siteUrl = new URL(`../index.html?c=${encodeURIComponent(c.slug)}`, location.href).href;
     return `<div class="page__head"><div><h1>Réglages</h1><p>Règles de réservation, notifications et agenda.</p></div></div>
       <div class="grid grid--2">
-        <section class="card"><h2>Règles de réservation</h2><form id="rules-form">
+        <section class="card" style="align-self:start"><h2>Règles de réservation</h2><form id="rules-form">
           <label class="switch"><span><b>Délai de prévenance</b><small>Réservation en ligne au plus tard… avant la séance</small></span>${sel("s-notice", [0, 1, 2, 3, 6, 12, 24, 48], c.min_notice_hours, (h) => h ? `${h} h` : "Aucun")}</label>
           <label class="switch"><span><b>Ouverture des réservations</b><small>Jusqu'à combien de jours à l'avance</small></span>${sel("s-adv", [7, 14, 21, 30, 45, 60, 90], c.max_advance_days, (d) => `${d} jours`)}</label>
           <label class="switch"><span><b>Annulation gratuite</b><small>Le joueur peut annuler en ligne jusqu'à…</small></span>${sel("s-cancel", [0, 2, 6, 12, 24, 48, 72], c.cancel_hours, (h) => h ? `${h} h avant` : "Jusqu'au début")}</label>
