@@ -959,7 +959,7 @@
     const sec = (id, title, body) => `<section class="card" id="${id}"><h2>${title}</h2>${body}</section>`;
     return `<div class="page__head"><div><h1>Mon site</h1><p>Textes, photos et couleurs de votre site. Les changements sont en ligne dès l'enregistrement.</p></div>
         <a class="btn" href="../index.html?c=${encodeURIComponent(S.coach.slug)}" target="_blank" rel="noopener">${icon("ext")} Voir mon site</a></div>
-      <div class="site-layout">
+      <div class="site-layout" data-tab="${esc(S.ui.siteTab || "s-identite")}">
         <nav class="site-toc" aria-label="Sections"><a href="#s-identite" data-scroll>Identité</a><a href="#s-accueil" data-scroll>Accueil</a><a href="#s-coach" data-scroll>Présentation</a><a href="#s-photos" data-scroll>Galerie photos</a>
           <a href="#s-avis" data-scroll>Témoignages</a><a href="#s-contact" data-scroll>Contact</a><a href="#s-seo" data-scroll>Référencement</a></nav>
         <form class="site-sections" id="site-form" novalidate>
@@ -1031,8 +1031,19 @@
       c.textContent = `${n} / ${max}`; c.classList.toggle("counter--over", n > max);
     });
     page.querySelectorAll("#c-seot, #c-seod").forEach((x) => x.addEventListener("input", counters)); counters();
+    // Sur mobile, une rubrique à la fois (onglets en haut) ; sur ordinateur, sommaire qui fait défiler la page.
+    const layout = page.querySelector(".site-layout"), toc = page.querySelector(".site-toc");
+    const mobile = () => matchMedia("(max-width: 860px)").matches;
+    const showTab = (id) => {
+      layout.dataset.tab = id; S.ui.siteTab = id;
+      toc.querySelectorAll("a").forEach((x) => { const on = x.getAttribute("href") === "#" + id; x.setAttribute("aria-current", on ? "true" : "false"); if (on && mobile()) x.scrollIntoView({ block: "nearest", inline: "center" }); });
+    };
+    showTab(layout.dataset.tab);
     page.querySelectorAll("[data-scroll]").forEach((a) => a.addEventListener("click", (e) => {
-      e.preventDefault(); page.querySelector(a.getAttribute("href")).scrollIntoView({ behavior: "smooth", block: "start" });
+      e.preventDefault();
+      const id = a.getAttribute("href").slice(1);
+      if (mobile()) { showTab(id); layout.scrollIntoView({ block: "start" }); }
+      else { showTab(id); page.querySelector("#" + id).scrollIntoView({ behavior: "smooth", block: "start" }); }
     }));
     page.addEventListener("change", async (e) => {
       const inp = e.target.closest("[data-upload]");
