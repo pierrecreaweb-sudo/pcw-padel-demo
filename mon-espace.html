@@ -13,7 +13,7 @@
 <link rel="manifest" href="manifest-espace.webmanifest">
 <meta name="theme-color" content="#0E2A52">
 <link rel="apple-touch-icon" href="admin/apple-touch-icon.png">
-<link rel="stylesheet" href="assets/site.css?v=mw38iqfv">
+<link rel="stylesheet" href="assets/site.css?v=mw3a2en5">
 <style>
   :root { --nav-h: 68px; }
   body { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 12px); overflow-x: hidden; }
@@ -129,10 +129,10 @@
 <main class="wrap">
   <div class="space" id="space" aria-live="polite"><div class="panel"><div class="skeleton"></div><div class="skeleton" style="margin-top:12px;width:60%"></div></div></div>
 </main>
-<script src="assets/config.js?v=mw38iqfv"></script>
-<script src="assets/core.js?v=mw38iqfv"></script>
-<script src="assets/demo-data.js?v=mw38iqfv"></script>
-<script src="assets/api.js?v=mw38iqfv"></script>
+<script src="assets/config.js?v=mw3a2en5"></script>
+<script src="assets/core.js?v=mw3a2en5"></script>
+<script src="assets/demo-data.js?v=mw3a2en5"></script>
+<script src="assets/api.js?v=mw3a2en5"></script>
 <script>
 (function () {
   "use strict";
@@ -344,7 +344,7 @@
     const poly = (f) => skills.map((k, i) => pt(i, f(k)).map((x) => x.toFixed(1)).join(",")).join(" ");
     const grid = [1, 2, 3, 4, 5].map((l) => `<polygon points="${skills.map((_, i) => pt(i, l).map((x) => x.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="var(--line)" stroke-width="1"/>`).join("");
     const axes = skills.map((_, i) => { const p = pt(i, 5); return `<line x1="${cx}" y1="${cy}" x2="${p[0].toFixed(1)}" y2="${p[1].toFixed(1)}" stroke="var(--line)"/>`; }).join("");
-    const labels = skills.map((k, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n, x = cx + (R + 18) * Math.cos(a), y = cy + (R + 18) * Math.sin(a); const an = Math.cos(a) > .3 ? "start" : Math.cos(a) < -.3 ? "end" : "middle"; return `<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="${an}" font-size="11.5" font-weight="600" fill="var(--brand)">${esc(k.skill)}</text>`; }).join("");
+    const labels = skills.map((k, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n, x = cx + (R + 18) * Math.cos(a), y = cy + (R + 18) * Math.sin(a); const an = Math.cos(a) > .3 ? "start" : Math.cos(a) < -.3 ? "end" : "middle"; return `<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="${an}" font-size="11.5" font-weight="600" fill="var(--brand)">${esc(k.skill.replace(/ \(.*\)/, ""))}</text>`; }).join("");
     const hasPrev = skills.some((k) => k.previous);
     return `<svg class="radar" viewBox="0 0 ${S} ${S + 8}" role="img" aria-label="Radar de mes gestes">${grid}${axes}
       ${hasPrev ? `<polygon points="${poly((k) => k.previous || 0)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3"/>` : ""}
@@ -359,7 +359,7 @@
     const hist = data.skill_history || [];
     const avg = data.skills.length ? Math.round(10 * data.skills.reduce((a, k) => a + k.level, 0) / data.skills.length) / 10 : 0;
     const best = data.skills.length ? data.skills.slice().sort((a, b) => b.level - a.level)[0] : null;
-    const prog = data.skills.slice().filter((k) => k.previous && k.level > k.previous);
+    const prog = data.skills.slice().filter((k) => k.previous && k.level > k.previous && !(best && k.skill === best.skill));
     const next = st.total < 10 ? ["10 séances", 10 - st.total] : st.total < 25 ? ["25 séances", 25 - st.total] : st.total < 50 ? ["50 séances", 50 - st.total] : null;
     return `
       <div class="panel"><h2>${ICON.chart}Mes statistiques</h2>
