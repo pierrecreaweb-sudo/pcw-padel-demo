@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Mon espace joueur</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="referrer" content="no-referrer">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="manifest" href="manifest-espace.webmanifest">
+<meta name="theme-color" content="#0E2A52">
+<link rel="apple-touch-icon" href="admin/apple-touch-icon.png">
+<link rel="stylesheet" href="assets/site.css?v=mw38iqfv">
+<style>
+  :root { --nav-h: 68px; }
+  body { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 12px); overflow-x: hidden; }
+  .space { display: grid; gap: 16px; padding: 18px 0 28px; max-width: 760px; margin: 0 auto; }
+  .space h2 { margin: 0 0 12px; font: 800 19px/1.2 var(--f-display); color: var(--brand); display: flex; align-items: center; gap: 8px; }
+  .space h2 svg { width: 20px; height: 20px; flex: none; color: var(--brand-2); }
+  .space ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .space li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+  .space li b { color: var(--brand); }
+  .space .sub { color: var(--muted); font-size: 14px; }
+  .space .notes { margin: 8px 0 0; padding: 10px 12px; border-radius: 10px; background: #F4F8D6; color: var(--brand); font-size: 15px; white-space: pre-wrap; }
+  .space .bar { height: 10px; border-radius: 999px; background: var(--line); overflow: hidden; margin: 8px 0 4px; }
+  .space .bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--brand-2), var(--brand)); border-radius: 999px; transition: width .4s ease; }
+  .space .check { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; }
+  .space .check input { margin-top: 4px; }
+  .space .panel { padding: 18px; }
+
+  /* barre du bas, comme une application */
+  .bnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; display: grid; grid-template-columns: repeat(4, 1fr); background: #fff; border-top: 1px solid var(--line); padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -6px 20px rgba(14, 42, 82, .08); }
+  .bnav button { position: relative; display: grid; justify-items: center; gap: 3px; padding: 6px 2px; border: 0; background: none; color: var(--muted); font: 700 11.5px/1.1 var(--f-body); cursor: pointer; border-radius: 12px; }
+  .bnav button svg { width: 24px; height: 24px; }
+  .bnav button[aria-current="true"] { color: var(--brand); }
+  .bnav button[aria-current="true"]::before { content: ""; position: absolute; top: -7px; width: 28px; height: 4px; border-radius: 0 0 4px 4px; background: var(--brand); }
+  .bnav .dot { position: absolute; top: 2px; left: calc(50% + 6px); min-width: 18px; padding: 2px 5px; border-radius: 999px; background: #D4401E; color: #fff; font-size: 11px; text-align: center; }
+  @media (min-width: 761px) { .bnav { left: 50%; right: auto; width: 520px; transform: translateX(-50%); border: 1px solid var(--line); border-bottom: 0; border-radius: 18px 18px 0 0; } }
+
+  /* bandeau d'accueil */
+  .hero { position: relative; overflow: hidden; padding: 22px 20px 20px; border-radius: 20px; color: var(--on-brand); background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%); }
+  .hero::after { content: ""; position: absolute; right: -34px; top: -46px; width: 118px; height: 118px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #F2FB8C, var(--ball) 55%, #C7D83A); opacity: .95; }
+  .hero::before { content: ""; position: absolute; right: -10px; top: -90px; width: 150px; height: 230px; border: 3px solid rgba(255, 255, 255, .55); border-radius: 50%; transform: rotate(28deg); z-index: 1; opacity: .0; }
+  .hero > * { position: relative; z-index: 2; }
+  .hero .hi { margin: 0; font: 800 28px/1.1 var(--f-display); font-stretch: 108%; max-width: 62%; }
+  .hero .meta { margin: 6px 0 0; color: var(--on-brand-muted); font-size: 14px; max-width: 68%; }
+  .hero .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .hero .chip { padding: 6px 11px; border-radius: 999px; background: rgba(255, 255, 255, .16); font: 700 12.5px/1 var(--f-body); }
+  .next { margin-top: 16px; padding: 14px; border-radius: 16px; background: #fff; color: var(--ink); display: grid; gap: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .18); }
+  .next .lab { margin: 0; font: 700 11.5px/1 var(--f-body); letter-spacing: .14em; text-transform: uppercase; color: var(--brand-2); }
+  .next .row { display: flex; gap: 14px; align-items: center; }
+  .next .when { margin: 0; font: 800 17px/1.25 var(--f-display); color: var(--brand); }
+  .next .cd { display: block; width: fit-content; margin: 4px 0 2px; padding: 3px 8px; border-radius: 999px; background: #F4F8D6; color: var(--brand); font: 700 12px/1 var(--f-body); }
+  .next .acts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .next .acts a, .next .acts button { font: 700 13.5px/1 var(--f-body); }
+  .hero .cta { margin-top: 16px; }
+
+  .datetile { flex: none; width: 54px; padding: 7px 0 6px; border-radius: 12px; text-align: center; background: var(--brand); color: #fff; line-height: 1; }
+  .datetile b { display: block; font: 800 22px/1 var(--f-display); color: #fff; }
+  .datetile span { display: block; margin-top: 3px; font: 700 11px/1 var(--f-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ball); }
+  .datetile.past { background: #E9EEF5; }
+  .datetile.past b { color: var(--brand); } .datetile.past span { color: var(--muted); }
+
+  .quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .quick a, .quick button { display: grid; justify-items: center; gap: 6px; padding: 12px 6px; border: 1px solid var(--line); border-radius: 14px; background: #fff; color: var(--brand); font: 700 12.5px/1.15 var(--f-body); text-align: center; text-decoration: none; cursor: pointer; }
+  .quick svg { width: 24px; height: 24px; color: var(--brand-2); }
+
+  .chipst { display: inline-block; padding: 3px 8px; border-radius: 999px; font: 700 11.5px/1.2 var(--f-body); background: #E7F6EE; color: var(--ok); vertical-align: 1px; }
+  .chipst.warn { background: #FFF1D6; color: var(--warn); }
+  .chipst.off { background: #EEF0F3; color: var(--muted); }
+  .chipst.err { background: #FDECEA; color: var(--err); }
+  .item { display: flex; gap: 12px; align-items: flex-start; }
+  .item .body { min-width: 0; flex: 1; }
+  .item .body b { display: block; }
+  .space .stat { padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+  .space .grid2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .space .stat { display: flex; gap: 10px; align-items: center; background: #F7F9FC; }
+  .space .stat svg { width: 30px; height: 30px; flex: none; padding: 6px; border-radius: 10px; background: #fff; color: var(--brand-2); border: 1px solid var(--line); }
+  .space .stat b { display: block; font: 800 22px/1.05 var(--f-display); color: var(--brand); }
+  .space .stat span { color: var(--muted); font-size: 12.5px; line-height: 1.2; display: block; }
+  .space .badges { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+  .space .badge { display: grid; justify-items: center; gap: 4px; padding: 10px 4px; border-radius: 14px; background: #F4F8D6; color: var(--brand); font: 700 11.5px/1.15 var(--f-body); text-align: center; }
+  .space .badge i { font-style: normal; font-size: 22px; line-height: 1; }
+  .space .badge.off { background: #F0F2F5; color: #8a93a3; font-weight: 500; }
+  .space .badge.off i { filter: grayscale(1); opacity: .45; }
+  .space .badge.inl { display: inline-block; padding: 3px 8px; border-radius: 999px; font-size: 11.5px; }
+  .space .slotbtns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .space .slotbtns button, .space .linkbtn { border: 1px solid var(--line); background: #fff; border-radius: 999px; padding: 9px 14px; font: 600 14px/1.2 inherit; color: var(--brand); cursor: pointer; }
+  .space .slotbtns button[aria-pressed="true"] { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .space .row2 { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
+  .space select, .space input[type=date], .space input[type=text], .space input[type=email], .space input[type=tel], .space input[type=password], .space textarea { width: 100%; padding: 11px 12px; border: 1px solid var(--line); border-radius: 12px; font: inherit; background: #fff; }
+  .space label.f { display: block; margin: 10px 0 4px; font-weight: 600; font-size: 14px; }
+  .space .alert { margin: 10px 0 0; }
+  .space .banner { padding: 12px 14px; border-radius: 14px; background: #FFF4D6; color: #5a4300; font-size: 15px; border: 1px solid #F3DFA3; }
+  .space .thread { display: grid; gap: 8px; max-height: 52vh; overflow-y: auto; padding: 4px 2px; }
+  .space .msg { max-width: 85%; padding: 9px 12px; border-radius: 16px 16px 16px 4px; background: #eef1ee; white-space: pre-wrap; font-size: 15px; }
+  .space .msg.me { justify-self: end; border-radius: 16px 16px 4px 16px; background: var(--brand); color: #fff; }
+  .space .msg small { display: block; opacity: .7; font-size: 11px; margin-top: 3px; }
+  .space .qr { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 0; }
+  .space .qr button { border: 1px solid var(--line); background: #fff; color: var(--brand); border-radius: 999px; padding: 7px 12px; font: 600 13px/1.2 inherit; cursor: pointer; }
+  .space .skill { display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .space .skill:last-child { border-bottom: 0; }
+  .space .dots i { display: inline-block; width: 12px; height: 12px; margin-left: 3px; border-radius: 50%; background: var(--line); }
+  .space .dots i.on { background: var(--brand); }
+  .space .danger { border-color: #e7b4b4; }
+  .space .btn--danger { background: #b3261e; color: #fff; }
+  .space .gl { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .space .gl a, .space .gl button { font-size: 13px; }
+  .space .gl a { padding: 6px 10px; border-radius: 999px; background: #EEF3FA; color: var(--brand); text-decoration: none; font-weight: 700; }
+  .radar { display: block; width: 100%; max-width: 340px; margin: 0 auto; }
+  .legend { display: flex; justify-content: center; gap: 16px; font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; margin-right: 5px; border-radius: 3px; vertical-align: -1px; }
+  .ring { flex: none; width: 56px; height: 56px; }
+  .lvl { display: flex; gap: 14px; align-items: center; padding: 12px; margin-bottom: 14px; border-radius: 14px; background: #F4F8D6; color: var(--brand); }
+  .lvl b { font: 800 18px/1.1 var(--f-display); }
+  .moreline { text-align: center; margin-top: 12px; }
+  .space .skeleton { min-height: 18px; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar__in">
+    <a class="brand" href="index.html" id="brand"><span class="brand__mark" aria-hidden="true"></span><span id="brand-text">MON ESPACE</span></a>
+  </div>
+</header>
+<main class="wrap">
+  <div class="space" id="space" aria-live="polite"><div class="panel"><div class="skeleton"></div><div class="skeleton" style="margin-top:12px;width:60%"></div></div></div>
+</main>
+<script src="assets/config.js?v=mw38iqfv"></script>
+<script src="assets/core.js?v=mw38iqfv"></script>
+<script src="assets/demo-data.js?v=mw38iqfv"></script>
+<script src="assets/api.js?v=mw38iqfv"></script>
+<script>
+(function () {
+  "use strict";
+  const P = window.PCW, esc = P.esc;
+  const el = document.getElementById("space");
+  const params = new URLSearchParams(location.search);
+  const act = params.get("a") || "";
+  const unsub = params.get("u") || "";
+  const slug = params.get("c") || P.currentSlug();
+  const cq = params.get("c") ? "?c=" + encodeURIComponent(params.get("c")) : "";
+  const cq2 = params.get("c") ? "&c=" + encodeURIComponent(params.get("c")) : "";
+  const home = `index.html${cq}`;
+  document.getElementById("brand").href = home;
+  const KEY = "pcw-player-" + slug;
+  let api, data = null, lastEmail = "", session = "", mode = params.get("m") === "ask" ? "ask" : "login", busy = false, err = "", info = "", done = false;
+  let tab = ["home", "progress", "messages", "settings"].includes(params.get("tab")) ? params.get("tab") : "home";
+  const ui = { sid: "", slots: null, slotsFor: "", more: false, pick: "", wlDate: "", note: "", noteErr: "", installEvt: null, exportBusy: false, confirmDel: false };
+  const ST = { confirmed: "Confirmée", pending: "À valider", completed: "Terminée", no_show: "Absent" };
+  const SKILL_LIST = ["Service", "Volée", "Bandeja", "Víbora", "Smash", "Chiquita", "Bajada", "Défense (vitres)", "Lob", "Déplacements", "Tactique"];
+  const getS = () => { try { return localStorage.getItem(KEY) || ""; } catch { return ""; } };
+  const setS = (v) => { try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch {} };
+  const errBox = () => err ? `<p class="alert alert--err" role="alert">${esc(err)}</p>` : "";
+  const btn = (t) => `<div class="actions" style="margin-top:12px"><button class="btn btn--brand" type="submit" ${busy ? "disabled" : ""}>${busy ? "Un instant…" : t}</button></div>`;
+  const euro = (c) => P.fmtPrice(c);
+
+  // ------------------------------------------------------------ connexion ---
+  function loginView() {
+    if (mode === "ask") return `<div class="panel">
+      <p class="eyebrow eyebrow--brand">Espace joueur</p>
+      <h1 class="h2" style="font-size:30px">Créer mon espace ou mot de passe oublié</h1>
+      <p class="muted">L'espace joueur est réservé aux personnes qui ont déjà pris au moins un cours avec ce coach. Indiquez l'adresse email utilisée pour la séance : nous vous envoyons un lien pour choisir votre mot de passe.</p>
+      ${info ? `<p class="alert alert--ok" role="status">${esc(info)}</p>` : `<form id="ask" class="field" novalidate><label for="em">Votre email</label><input id="em" type="email" autocomplete="email" required maxlength="200" value="${esc(lastEmail)}">${errBox()}${btn("Recevoir le lien")}</form>`}
+      <p style="margin:14px 0 0"><a href="#" data-mode="login">← Retour à la connexion</a></p></div>`;
+    return `<div class="panel">
+      <p class="eyebrow eyebrow--brand">Espace joueur</p>
+      <h1 class="h2" style="font-size:30px">Connexion</h1>
+      <p class="muted">Retrouvez votre historique de séances, vos packs, vos objectifs et les points travaillés avec votre coach.</p>
+      <form id="login" class="field" novalidate>
+        <label for="l-email">Votre email</label><input id="l-email" type="email" autocomplete="username" required maxlength="200" value="${esc(lastEmail)}">
+        <label for="l-pass" style="margin-top:10px">Mot de passe</label><input id="l-pass" type="password" autocomplete="current-password" required maxlength="100">
+        ${errBox()}${btn("Me connecter")}</form>
+      <p style="margin:16px 0 0" class="sub">Première visite, ou mot de passe oublié ? <a href="#" data-mode="ask">Créer mon espace / nouveau mot de passe</a></p>
+      <p class="sub" style="margin:6px 0 0">Réservé aux joueurs ayant déjà pris un cours avec ce coach.</p>
+      ${slug === "demo" ? `<p class="muted" style="margin-top:14px">Démo : n'importe quel email, mot de passe « demo1234 ».</p>` : ""}</div>`;
+  }
+  function activateView() {
+    if (done) return `<div class="panel"><h1 class="h3">Mot de passe enregistré</h1><p class="muted">Votre espace est prêt.</p><a class="btn btn--brand" href="mon-espace.html${cq}">Ouvrir mon espace</a></div>`;
+    return `<div class="panel">
+      <p class="eyebrow eyebrow--brand">Espace joueur</p>
+      <h1 class="h2" style="font-size:30px">Choisissez votre mot de passe</h1>
+      <p class="muted">Au moins 8 caractères. Vous l'utiliserez avec votre email pour vous connecter, sans recevoir de nouveau lien.</p>
+      <form id="setpw" class="field" novalidate>
+        <label for="p1">Mot de passe</label><input id="p1" type="password" autocomplete="new-password" minlength="8" required maxlength="72">
+        <label for="p2" style="margin-top:10px">Confirmez le mot de passe</label><input id="p2" type="password" autocomplete="new-password" minlength="8" required maxlength="72">
+        ${errBox()}${btn("Enregistrer et entrer")}</form></div>`;
+  }
+  function unsubView() {
+    return `<div class="panel"><p class="eyebrow eyebrow--brand">Annonces de stages</p>
+      <h1 class="h2" style="font-size:30px">${info ? "C'est noté" : "Ne plus recevoir les annonces"}</h1>
+      <p class="muted">${info ? esc(info) : "Cliquez pour ne plus recevoir par email les annonces de stages. Les emails liés à vos réservations continuent d'être envoyés."}</p>
+      ${info ? "" : `<form id="unsub">${errBox()}${btn("Ne plus recevoir les annonces")}</form>`}
+      <p style="margin:14px 0 0"><a href="${home}">Retour au site</a></p></div>`;
+  }
+
+  // -------------------------------------------------------------- agenda ---
+  const icsDate = (d) => new Date(d).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const icsText = (v) => String(v || "").replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/;/g, "\;").replace(/,/g, "\\,");
+  function buildIcs(list) {
+    const L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//PCW Padel Coach//Espace joueur//FR", "CALSCALE:GREGORIAN"];
+    list.forEach((u, i) => L.push("BEGIN:VEVENT", `UID:${icsDate(u.starts_at)}-${i}@pcw-padel`, `DTSTAMP:${icsDate(new Date())}`, `DTSTART:${icsDate(u.starts_at)}`, `DTEND:${icsDate(u.ends_at)}`,
+      `SUMMARY:${icsText(u.service_name + " avec " + data.coach.display_name)}`, ...(u.location ? [`LOCATION:${icsText([u.location, u.address].filter(Boolean).join(", "))}`] : []), "END:VEVENT"));
+    L.push("END:VCALENDAR");
+    return L.join("\r\n");
+  }
+  function download(name, text, type) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], { type: type || "text/calendar;charset=utf-8" }));
+    a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+  const gcal = (u) => "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(u.service_name + " avec " + data.coach.display_name)
+    + "&dates=" + icsDate(u.starts_at) + "/" + icsDate(u.ends_at) + (u.location ? "&location=" + encodeURIComponent([u.location, u.address].filter(Boolean).join(", ")) : "");
+
+  // --------------------------------------------------------------- icônes ---
+  const IC = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const ICON = {
+    home: IC('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>'),
+    chart: IC('<path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/>'),
+    chat: IC('<path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-5.4A8 8 0 1 1 21 12z"/>'),
+    gear: IC('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+    cal: IC('<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>'),
+    clock: IC('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
+    flame: IC('<path d="M12 22c4 0 7-2.7 7-6.5 0-3-2-5-3.5-7-.5 1.5-1.5 2.5-2.5 2.5 0-4-2-6-3.5-8C9 8 5 11 5 15.5 5 19.3 8 22 12 22z"/>'),
+    ball: IC('<circle cx="12" cy="12" r="9"/><path d="M5.5 5.5c3 3 3 10 0 13M18.5 5.5c-3 3-3 10 0 13"/>'),
+    target: IC('<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>'),
+    pack: IC('<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/>'),
+    trophy: IC('<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>'),
+    pin: IC('<path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/>'),
+    plus: IC('<path d="M12 5v14M5 12h14"/>'),
+    star: IC('<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>'),
+  };
+  const dayPart = (iso, tz, o) => new Intl.DateTimeFormat("fr-FR", Object.assign({ timeZone: tz }, o)).format(new Date(iso));
+  const tile = (iso, tz, past) => `<div class="datetile ${past ? "past" : ""}" aria-hidden="true"><b>${esc(dayPart(iso, tz, { day: "numeric" }))}</b><span>${esc(dayPart(iso, tz, { month: "short" }).replace(".", ""))}</span></div>`;
+  const ymdMs = (s) => Date.parse(s + "T12:00:00Z");
+  function countdown(iso, tz) {
+    const d = Math.round((ymdMs(P.localYmd(new Date(iso), tz)) - ymdMs(P.localYmd(new Date(), tz))) / 864e5);
+    return d <= 0 ? "Aujourd'hui" : d === 1 ? "Demain" : "Dans " + d + " jours";
+  }
+  const mapsUrl = (u) => (u.address || u.location) ? "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent([u.location, u.address].filter(Boolean).join(", ")) : "";
+  const statusChip = (s) => `<span class="chipst ${s === "confirmed" || s === "completed" ? "" : s === "pending" ? "warn" : s === "no_show" ? "err" : "off"}">${esc(ST[s] || s)}</span>`;
+
+  // --------------------------------------------------------------- vues ---
+  const barHtml = (pct, label) => `<div class="bar" role="img" aria-label="${esc(label)}"><i style="width:${pct}%"></i></div>`;
+  function packAlerts() {
+    const out = [];
+    const today = new Date().toISOString().slice(0, 10), in14 = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
+    data.packs.forEach((k) => {
+      const left = k.sessions_total - k.sessions_used;
+      if (left <= 0 || (k.expires_at && k.expires_at < today)) return;
+      if (k.sessions_total > 1 && left === 1) out.push(`Il ne vous reste plus qu'<b>une séance</b> sur votre pack « ${esc(k.name)} ».`);
+      if (k.expires_at && k.expires_at <= in14) out.push(`Votre pack « ${esc(k.name)} » expire le <b>${esc(P.fmtYmd(k.expires_at))}</b> (${left} séance${left > 1 ? "s" : ""} restante${left > 1 ? "s" : ""}).`);
+    });
+    return out.length ? `<div class="banner" role="status">${out.map((t) => `<div>${t}</div>`).join("")}<div style="margin-top:8px"><a href="${home}#packs">Reprendre un pack</a></div></div>` : "";
+  }
+  function quickBook(tz) {
+    const sv = data.services || [];
+    if (!sv.length) return "";
+    if (!ui.sid) ui.sid = (data.last_service && data.last_service.service_id) || sv[0].id;
+    const cur = sv.find((x) => x.id === ui.sid) || sv[0];
+    let slotsHtml;
+    if (ui.slots === null) slotsHtml = `<div class="skeleton" style="height:40px;margin-top:10px"></div>`;
+    else if (!ui.slots.length) slotsHtml = `<p class="muted" style="margin:10px 0 0">Aucun créneau libre dans les 14 prochains jours.</p>`;
+    else {
+      const list = ui.slots.slice(0, ui.more ? 24 : 6);
+      slotsHtml = `<div class="slotbtns">${list.map((s) => `<button type="button" data-slot="${esc(s.starts_at)}" aria-pressed="${ui.pick === s.starts_at}">${esc(P.fmtDate(s.starts_at, tz, "short"))} · ${esc(P.fmtTime(s.starts_at, tz))}</button>`).join("")}
+        ${!ui.more && ui.slots.length > 6 ? `<button type="button" data-action="more-slots">Plus de créneaux</button>` : ""}</div>
+        ${ui.pick ? `<div class="row2"><span><b>${esc(cur.name)}</b> · ${esc(P.fmtDate(ui.pick, tz))}, ${esc(P.fmtTime(ui.pick, tz))}${cur.price_cents ? " · " + esc(euro(cur.price_cents)) + " à régler sur place" : ""}</span>
+          <button type="button" class="btn btn--brand" data-action="book-now" ${busy ? "disabled" : ""}>${busy ? "Réservation…" : "Confirmer la réservation"}</button></div>` : ""}`;
+    }
+    const wl = (data.waitlist || []);
+    return `<div class="panel" id="quick-book"><h2>${ICON.plus}Réserver en 1 clic</h2>
+      <p class="sub" style="margin:0">Vos coordonnées sont déjà enregistrées : choisissez une prestation et un créneau.</p>
+      <label class="f" for="q-sv">Prestation</label>
+      <select id="q-sv">${sv.map((x) => `<option value="${esc(x.id)}" ${x.id === cur.id ? "selected" : ""}>${esc(x.name)}${x.duration_minutes ? " · " + x.duration_minutes + " min" : ""}${x.price_cents ? " · " + esc(euro(x.price_cents)) : ""}</option>`).join("")}</select>
+      ${slotsHtml}${ui.note ? `<p class="alert alert--ok" role="status">${ui.note}</p>` : ""}${ui.noteErr ? `<p class="alert alert--err" role="alert">${esc(ui.noteErr)}</p>` : ""}
+      <h3 style="margin:18px 0 4px;font-size:16px">Le créneau voulu n'est pas libre ?</h3>
+      <p class="sub" style="margin:0">Choisissez un jour : vous recevez un email si une place se libère.</p>
+      <div class="row2"><input type="date" id="wl-date" value="${esc(ui.wlDate)}" min="${new Date().toISOString().slice(0, 10)}" style="max-width:200px"><button type="button" class="linkbtn" data-action="wl-add">Me prévenir</button></div>
+      ${wl.length ? `<ul style="margin-top:12px">${wl.map((w) => `<li>${esc(w.service_name || "Séance")} · ${esc(P.fmtYmd(w.wanted_date))} <span class="sub">· ${w.status === "notified" ? "place libérée, un email vous a été envoyé" : "en attente"}</span> ${w.status === "waiting" ? `<button type="button" class="linkbtn" style="padding:4px 8px;margin-left:6px" data-action="wl-cancel" data-id="${esc(w.id)}">Annuler</button>` : ""}</li>`).join("")}</ul>` : ""}</div>`;
+  }
+  function packCard(k) {
+    const left = k.sessions_total - k.sessions_used, pct = Math.round(100 * k.sessions_used / k.sessions_total);
+    const exp = k.expires_at && k.expires_at < new Date().toISOString().slice(0, 10);
+    const r = 22, c = 2 * Math.PI * r, off = c * (1 - Math.min(1, k.sessions_used / k.sessions_total));
+    return `<li><div class="item"><svg class="ring" viewBox="0 0 56 56" role="img" aria-label="${Math.max(0, left)} séances restantes"><circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--line)" stroke-width="6"/><circle cx="28" cy="28" r="${r}" fill="none" stroke="var(--brand)" stroke-width="6" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 28 28)"/><text x="28" y="33" text-anchor="middle" font-size="15" font-weight="800" fill="var(--brand)">${Math.max(0, left)}</text></svg>
+      <div class="body"><b>${esc(k.name)}</b> ${exp ? '<span class="chipst off">Expiré</span>' : left <= 0 ? '<span class="chipst off">Terminé</span>' : k.payment_status === "unpaid" ? '<span class="chipst warn">À régler au coach</span>' : ""}
+      <span class="sub">${k.sessions_used} utilisée${k.sessions_used > 1 ? "s" : ""} sur ${k.sessions_total} · <b>${Math.max(0, left)} restante${left > 1 ? "s" : ""}</b>${k.expires_at ? "<br>Valable jusqu'au " + esc(P.fmtYmd(k.expires_at)) : ""}</span></div></div></li>`;
+  }
+  function homeTab() {
+    const tz = data.coach.timezone || "Europe/Paris";
+    const site = `index.html?c=${encodeURIComponent(data.coach.slug)}`;
+    const nDone = data.stats ? data.stats.total : data.history.filter((h) => h.status !== "no_show").length;
+    const nx = data.upcoming[0], rest = data.upcoming.slice(1);
+    const streak = data.stats ? data.stats.streak_weeks : 0;
+    const nextBlock = nx ? `<div class="next"><p class="lab">Prochaine séance</p>
+        <div class="row">${tile(nx.starts_at, tz)}<div><p class="when">${esc(P.fmtDate(nx.starts_at, tz))}, ${esc(P.fmtTime(nx.starts_at, tz))}<span class="cd">${esc(countdown(nx.starts_at, tz))}</span></p>
+          <span class="sub">${esc(nx.service_name)}${nx.location ? " · " + esc(nx.location) : ""} · ${statusChip(nx.status)}</span></div></div>
+        <div class="acts"><a class="btn btn--sm btn--ghost" href="${esc(gcal(nx))}" target="_blank" rel="noopener">Agenda</a>
+          ${mapsUrl(nx) ? `<a class="btn btn--sm btn--ghost" href="${esc(mapsUrl(nx))}" target="_blank" rel="noopener">Itinéraire</a>` : ""}
+          <a class="btn btn--sm btn--ghost" href="reservation.html?t=${esc(nx.cancel_token)}${cq2}">Gérer ou annuler</a></div></div>`
+      : `<a class="btn btn--ball cta" href="#quick-book" data-action="goto-book">Réserver une séance</a>`;
+    return `
+      <div class="hero"><h1 class="hi">Bonjour ${esc(data.player.first_name)}</h1>
+        <p class="meta">${nDone} séance${nDone > 1 ? "s" : ""} avec ${esc(data.coach.display_name)}${data.player.level ? " · niveau " + esc(data.player.level) : ""}</p>
+        ${streak >= 2 ? `<div class="chips"><span class="chip">🔥 ${streak} semaines d'affilée</span></div>` : ""}
+        ${nextBlock}</div>
+      <div class="quick">
+        <button type="button" data-action="goto-book">${ICON.plus}Réserver</button>
+        <button type="button" data-tab="messages">${ICON.chat}Écrire au coach</button>
+        <a href="${site}#reserver">${ICON.cal}Tout le planning</a></div>
+      ${packAlerts()}
+      ${rest.length ? `<div class="panel"><h2>${ICON.cal}Séances à venir</h2><ul>${rest.map((u, i) => `<li><div class="item">${tile(u.starts_at, tz)}<div class="body"><b>${esc(u.service_name)}</b> ${statusChip(u.status)}<br>
+          <span class="sub">${esc(P.fmtDate(u.starts_at, tz))}, ${esc(P.fmtTime(u.starts_at, tz))} – ${esc(P.fmtTime(u.ends_at, tz))}${u.location ? " · " + esc(u.location) : ""}</span>
+          <div class="gl"><a href="reservation.html?t=${esc(u.cancel_token)}${cq2}">Gérer ou annuler</a> <a href="${esc(gcal(u))}" target="_blank" rel="noopener">Google Agenda</a> <button type="button" class="linkbtn" style="padding:4px 10px" data-action="ics" data-i="${i + 1}">.ics</button></div></div></div></li>`).join("")}</ul></div>` : ""}
+      ${data.upcoming.length ? `<div style="text-align:center"><button type="button" class="linkbtn" data-action="ics-all">Ajouter ${data.upcoming.length > 1 ? "toutes mes séances" : "ma séance"} à mon agenda (Apple / Outlook)</button></div>` : ""}
+      ${quickBook(tz)}
+      ${data.packs.length ? `<div class="panel" id="packs"><h2>${ICON.pack}Mes packs de séances</h2><ul>${data.packs.map(packCard).join("")}</ul></div>` : ""}
+      ${data.stages.length ? `<div class="panel"><h2>${ICON.trophy}Mes stages</h2><ul>${data.stages.map((s) => `<li><div class="item">${tile(s.starts_at, tz)}<div class="body"><b>${esc(s.title)}</b> ${s.status === "confirmed" ? '<span class="chipst">Confirmé</span>' : '<span class="chipst warn">En attente</span>'}<br><span class="sub">${esc(P.fmtDate(s.starts_at, tz))}, ${esc(P.fmtTime(s.starts_at, tz))}</span></div></div></li>`).join("")}</ul></div>` : ""}
+      ${historyPanel(tz)}`;
+  }
+  function historyPanel(tz) {
+    const all = data.history, n = ui.allHist ? all.length : 5, list = all.slice(0, n);
+    return `<div class="panel"><h2>${ICON.clock}Historique des séances</h2>${all.length ? `<ul>${list.map((h) => `<li><div class="item">${tile(h.starts_at, tz, true)}<div class="body"><b>${esc(h.service_name)}</b> ${statusChip(h.status)}<br>
+          <span class="sub">${esc(P.fmtDate(h.starts_at, tz))}, ${esc(P.fmtTime(h.starts_at, tz))}${h.location ? " · " + esc(h.location) : ""}${h.pack_name ? " · pack « " + esc(h.pack_name) + " »" : ""}</span>
+          ${h.player_notes ? `<div class="notes">${esc(h.player_notes)}</div>` : ""}
+          <div class="gl">${h.review_token ? `<a href="review.html?t=${esc(h.review_token)}${cq2}">★ Donner mon avis</a>` : ""}${h.service_id && h.status !== "no_show" ? `<button type="button" class="linkbtn" style="padding:5px 10px" data-action="rebook" data-sid="${esc(h.service_id)}">↻ Réserver à nouveau</button>` : ""}</div></div></div></li>`).join("")}</ul>
+        ${all.length > 5 ? `<p class="moreline"><button type="button" class="linkbtn" data-action="toggle-hist">${ui.allHist ? "Réduire la liste" : "Voir tout l'historique (" + all.length + ")"}</button></p>` : ""}`
+        : `<p class="muted" style="margin:0">Vos séances apparaîtront ici après votre premier cours.</p>`}</div>`;
+  }
+  function sparkline(pts) {
+    if (pts.length < 2) return "";
+    const w = 80, h = 22, xs = pts.map((_, i) => 4 + i * (w - 8) / (pts.length - 1)), ys = pts.map((p) => h - 3 - (p.level - 1) * (h - 6) / 4);
+    return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true" style="vertical-align:middle"><polyline fill="none" stroke="var(--brand)" stroke-width="2" points="${xs.map((x, i) => x.toFixed(1) + "," + ys[i].toFixed(1)).join(" ")}"/></svg>`;
+  }
+  function radar(skills) {
+    const n = skills.length; if (n < 3) return "";
+    const S = 340, cx = S / 2, cy = S / 2 + 4, R = 100;
+    const pt = (i, v) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n; return [cx + R * v / 5 * Math.cos(a), cy + R * v / 5 * Math.sin(a)]; };
+    const poly = (f) => skills.map((k, i) => pt(i, f(k)).map((x) => x.toFixed(1)).join(",")).join(" ");
+    const grid = [1, 2, 3, 4, 5].map((l) => `<polygon points="${skills.map((_, i) => pt(i, l).map((x) => x.toFixed(1)).join(",")).join(" ")}" fill="none" stroke="var(--line)" stroke-width="1"/>`).join("");
+    const axes = skills.map((_, i) => { const p = pt(i, 5); return `<line x1="${cx}" y1="${cy}" x2="${p[0].toFixed(1)}" y2="${p[1].toFixed(1)}" stroke="var(--line)"/>`; }).join("");
+    const labels = skills.map((k, i) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n, x = cx + (R + 18) * Math.cos(a), y = cy + (R + 18) * Math.sin(a); const an = Math.cos(a) > .3 ? "start" : Math.cos(a) < -.3 ? "end" : "middle"; return `<text x="${x.toFixed(1)}" y="${(y + 4).toFixed(1)}" text-anchor="${an}" font-size="11.5" font-weight="600" fill="var(--brand)">${esc(k.skill)}</text>`; }).join("");
+    const hasPrev = skills.some((k) => k.previous);
+    return `<svg class="radar" viewBox="0 0 ${S} ${S + 8}" role="img" aria-label="Radar de mes gestes">${grid}${axes}
+      ${hasPrev ? `<polygon points="${poly((k) => k.previous || 0)}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3"/>` : ""}
+      <polygon points="${poly((k) => k.level)}" fill="var(--brand-2)" fill-opacity=".25" stroke="var(--brand)" stroke-width="2.5" stroke-linejoin="round"/>
+      ${skills.map((k, i) => { const p = pt(i, k.level); return `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.5" fill="var(--brand)"/>`; }).join("")}${labels}</svg>
+      <div class="legend"><span><i style="background:var(--brand-2);opacity:.6"></i>Niveau actuel</span>${hasPrev ? `<span><i style="border:1.5px dashed var(--muted)"></i>Évaluation précédente</span>` : ""}</div>`;
+  }
+  function progressTab() {
+    const st = data.stats || { total: 0, minutes: 0, this_month: 0, streak_weeks: 0 };
+    const hrs = Math.round(st.minutes / 6) / 10;
+    const bd = [["🎾", "Première séance", st.total >= 1], ["🔟", "10 séances", st.total >= 10], ["🥈", "25 séances", st.total >= 25], ["🏆", "50 séances", st.total >= 50], ["🔥", "4 semaines d'affilée", st.streak_weeks >= 4], ["⚡", "8 semaines d'affilée", st.streak_weeks >= 8]];
+    const hist = data.skill_history || [];
+    const avg = data.skills.length ? Math.round(10 * data.skills.reduce((a, k) => a + k.level, 0) / data.skills.length) / 10 : 0;
+    const best = data.skills.length ? data.skills.slice().sort((a, b) => b.level - a.level)[0] : null;
+    const prog = data.skills.slice().filter((k) => k.previous && k.level > k.previous);
+    const next = st.total < 10 ? ["10 séances", 10 - st.total] : st.total < 25 ? ["25 séances", 25 - st.total] : st.total < 50 ? ["50 séances", 50 - st.total] : null;
+    return `
+      <div class="panel"><h2>${ICON.chart}Mes statistiques</h2>
+        <div class="grid2">
+          <div class="stat">${ICON.ball}<div><b>${st.total}</b><span>séance${st.total > 1 ? "s" : ""} jouée${st.total > 1 ? "s" : ""}</span></div></div>
+          <div class="stat">${ICON.clock}<div><b>${hrs}</b><span>heure${hrs > 1 ? "s" : ""} de padel</span></div></div>
+          <div class="stat">${ICON.cal}<div><b>${st.this_month}</b><span>ce mois-ci</span></div></div>
+          <div class="stat">${ICON.flame}<div><b>${st.streak_weeks}</b><span>semaine${st.streak_weeks > 1 ? "s" : ""} d'affilée</span></div></div>
+        </div>
+        <p class="sub" style="margin:12px 0 0">${st.first_at ? "Premier cours le " + esc(P.fmtDate(st.first_at, data.coach.timezone, "short")).replace(/\.$/, "") + "." : ""}${st.top_service ? " Prestation favorite : " + esc(st.top_service) + "." : ""}</p>
+        ${next ? `<p class="sub" style="margin:6px 0 0">Prochain badge « ${next[0]} » : encore <b>${next[1]}</b> séance${next[1] > 1 ? "s" : ""}.</p>` : ""}
+        <div class="badges">${bd.map(([i, t, on]) => `<span class="badge ${on ? "" : "off"}"><i>${i}</i>${esc(t)}</span>`).join("")}</div></div>
+      <div class="panel"><h2>${ICON.target}Ma fiche de progression</h2>
+        ${data.skills.length ? `<div class="lvl"><div style="flex:1"><b>Moyenne ${String(avg).replace(".", ",")} / 5</b><br><span class="sub" style="color:inherit;opacity:.85">${best ? "Point fort : " + esc(best.skill) + "." : ""}${prog.length ? " En progrès : " + prog.map((k) => esc(k.skill)).join(", ") + "." : ""}</span></div></div>` : ""}
+        ${radar(data.skills)}
+        ${data.skills.length ? data.skills.map((k) => {
+          const d = k.previous ? k.level - k.previous : 0;
+          const pts = hist.filter((x) => x.skill === k.skill);
+          return `<div class="skill"><div><b>${esc(k.skill)}</b> ${d > 0 ? '<span class="badge inl">▲ +' + d + "</span>" : d < 0 ? '<span class="badge inl off">▼ ' + d + "</span>" : ""}<br><span class="sub">Évalué le ${esc(P.fmtDate(k.rated_at, data.coach.timezone, "short"))}</span></div>
+            <div style="text-align:right"><span class="dots" aria-label="${k.level} sur 5">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= k.level ? "on" : ""}"></i>`).join("")}</span><br>${sparkline(pts)}</div></div>`; }).join("")
+        : `<p class="muted" style="margin:0">Votre coach n'a pas encore évalué vos gestes. Les notes de 1 à 5 apparaîtront ici après vos prochains cours.</p>`}</div>
+      <div class="panel"><h2>${ICON.star}Mes objectifs</h2>
+        ${data.goals.length ? `<ul>${data.goals.map((g) => `<li><b>${esc(g.title)}</b>${g.status === "done" ? ' <span class="chipst">Atteint ✓</span>' : ""}${g.created_by === "coach" ? ' <span class="sub">· fixé par votre coach</span>' : ""}
+          ${barHtml(g.progress, "Progression " + g.progress + "%")}
+          <div class="row2"><span class="sub">${g.progress}%</span>
+          ${g.status === "active" ? `<input type="range" min="0" max="100" step="10" value="${g.progress}" data-goal-range="${esc(g.id)}" style="flex:1;min-width:120px;width:auto;padding:0;border:0" aria-label="Progression de l'objectif">
+            <button type="button" class="linkbtn" data-action="goal-done" data-id="${esc(g.id)}">Atteint</button>` : `<button type="button" class="linkbtn" data-action="goal-reopen" data-id="${esc(g.id)}">Rouvrir</button>`}
+          <button type="button" class="linkbtn" data-action="goal-del" data-id="${esc(g.id)}">Retirer</button></div></li>`).join("")}</ul>` : `<p class="muted" style="margin:0 0 6px">Fixez-vous un cap avec votre coach, par exemple « améliorer ma bandeja ».</p>`}
+        <div class="qr">${["Améliorer ma bandeja", "Gagner en régularité", "Jouer un tournoi", "Mieux défendre aux vitres"].filter((t) => !data.goals.some((g) => g.title === t)).map((t) => `<button type="button" data-action="goal-sugg" data-t="${esc(t)}">+ ${esc(t)}</button>`).join("")}</div>
+        <form id="goal-form" class="row2" style="margin-top:12px" novalidate><input type="text" id="goal-title" maxlength="160" placeholder="Mon nouvel objectif" style="flex:1;min-width:180px"><button class="btn btn--brand" type="submit">Ajouter</button></form>
+        ${ui.noteErr && tab === "progress" ? `<p class="alert alert--err">${esc(ui.noteErr)}</p>` : ""}</div>`;
+  }
+  function messagesTab() {
+    const m = data.messages || [];
+    return `<div class="panel"><h2>${ICON.chat}Messagerie avec ${esc(data.coach.display_name)}</h2>
+      ${m.length ? `<div class="thread" id="thread">${m.map((x) => `<div class="msg ${x.sender === "player" ? "me" : ""}">${esc(x.body)}<small>${x.sender === "player" ? "Vous" : esc(data.coach.display_name)} · ${esc(P.fmtDate(x.created_at, data.coach.timezone, "short"))} ${esc(P.fmtTime(x.created_at, data.coach.timezone))}</small></div>`).join("")}</div>`
+        : `<p class="muted" style="margin:0 0 10px">Une question sur une séance, un pack ou un exercice ? Écrivez à votre coach ici.</p>`}
+      <div class="qr">${["Puis-je décaler ma séance ?", "Je serai en retard", "Quel exercice travailler seul ?", "Pouvez-vous me proposer un créneau ?"].map((t) => `<button type="button" data-action="qr" data-t="${esc(t)}">${esc(t)}</button>`).join("")}</div>
+      <form id="msg-form" style="margin-top:12px" novalidate><label class="f" for="msg-body">Votre message</label><textarea id="msg-body" rows="3" maxlength="2000" placeholder="Bonjour coach…"></textarea>
+        ${ui.noteErr && tab === "messages" ? `<p class="alert alert--err">${esc(ui.noteErr)}</p>` : ""}
+        <div class="actions" style="margin-top:10px"><button class="btn btn--brand" type="submit" ${busy ? "disabled" : ""}>${busy ? "Envoi…" : "Envoyer"}</button></div></form>
+      <p class="sub" style="margin:10px 0 0">Votre coach vous répond ici et par email. Pour une urgence le jour même, appelez-le directement.</p></div>`;
+  }
+  const iosHint = () => /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.navigator.standalone;
+  const isStandalone = () => window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+  function settingsTab() {
+    const p = data.player;
+    const chk = (id, on, t, hint) => `<label class="check" style="margin-top:8px"><input type="checkbox" id="${id}" ${on ? "checked" : ""}> <span>${t}${hint ? `<br><small class="sub">${hint}</small>` : ""}</span></label>`;
+    return `
+      <div class="panel"><h2>Mes coordonnées et rappels</h2>
+        <form id="profile-form" novalidate>
+          <label class="f" for="s-email">Email</label><input id="s-email" type="email" autocomplete="email" maxlength="200" value="${esc(p.email || "")}">
+          <label class="f" for="s-phone">Téléphone</label><input id="s-phone" type="tel" autocomplete="tel" maxlength="30" value="${esc(p.phone || "")}">
+          <h3 style="margin:18px 0 2px;font-size:16px">Mes rappels par email</h3>
+          ${chk("s-rem", p.pref_reminders, "Rappel la veille de chaque séance")}
+          ${chk("s-pack", p.pref_pack_alerts, "Alertes de pack", "Il vous reste 1 séance, ou le pack arrive à échéance.")}
+          ${chk("s-msg", p.pref_messages, "Email quand mon coach m'écrit")}
+          ${chk("s-opt", !p.marketing_optout, "Annonces de stages de mon coach")}
+          <p class="sub" style="margin:8px 0 0">Les emails de confirmation et d'annulation de vos réservations sont toujours envoyés.</p>
+          ${ui.noteErr && tab === "settings" ? `<p class="alert alert--err">${esc(ui.noteErr)}</p>` : ""}${ui.note && tab === "settings" ? `<p class="alert alert--ok" role="status">${esc(ui.note)}</p>` : ""}
+          <div class="actions" style="margin-top:12px"><button class="btn btn--brand" type="submit">Enregistrer</button></div></form></div>
+      <div class="panel"><h2>Changer mon mot de passe</h2>
+        <form id="pw-form" novalidate>
+          <label class="f" for="pw-old">Mot de passe actuel</label><input id="pw-old" type="password" autocomplete="current-password" maxlength="72">
+          <label class="f" for="pw-new">Nouveau mot de passe (8 caractères minimum)</label><input id="pw-new" type="password" autocomplete="new-password" maxlength="72">
+          ${ui.pwMsg ? `<p class="alert ${ui.pwOk ? "alert--ok" : "alert--err"}" role="alert">${esc(ui.pwMsg)}</p>` : ""}
+          <div class="actions" style="margin-top:12px"><button class="btn" type="submit">Changer le mot de passe</button></div></form></div>
+      <div class="panel"><h2>Installer l'espace sur mon téléphone</h2>
+        ${isStandalone() ? `<p class="muted" style="margin:0">L'espace est déjà installé sur cet appareil.</p>`
+          : ui.installEvt ? `<p class="muted">Gardez votre espace joueur sur votre écran d'accueil, comme une application.</p><button type="button" class="btn btn--brand" data-action="install">Installer l'application</button>`
+          : iosHint() ? `<p class="muted" style="margin:0">Sur iPhone : touchez le bouton <b>Partager</b> (carré avec une flèche) en bas de Safari, puis <b>Sur l'écran d'accueil</b>.</p>`
+          : `<p class="muted" style="margin:0">Dans le menu de votre navigateur (⋮), choisissez <b>Installer l'application</b> ou <b>Ajouter à l'écran d'accueil</b>.</p>`}</div>
+      <div class="panel"><h2>Mes données</h2>
+        <p class="muted" style="margin:0 0 10px">Téléchargez une copie de toutes les informations que votre coach et ce site conservent sur vous (profil, séances, packs, objectifs, messages).</p>
+        <button type="button" class="btn" data-action="export" ${ui.exportBusy ? "disabled" : ""}>${ui.exportBusy ? "Préparation…" : "Télécharger mes données"}</button></div>
+      <div class="panel danger"><h2>Supprimer mon compte</h2>
+        <p class="muted" style="margin:0 0 10px">Votre accès, vos objectifs, vos messages et vos alertes sont supprimés, et vous ne recevez plus d'emails de rappel ni d'annonces. Votre coach conserve l'historique de vos séances et de vos paiements, comme le prévoit la loi pour sa comptabilité.</p>
+        ${ui.confirmDel ? `<form id="del-form" novalidate><label class="f" for="del-pw">Tapez votre mot de passe pour confirmer</label><input id="del-pw" type="password" autocomplete="current-password" maxlength="72">
+          ${ui.pwMsg ? `<p class="alert alert--err" role="alert">${esc(ui.pwMsg)}</p>` : ""}
+          <div class="row2"><button class="btn btn--danger" type="submit">Supprimer définitivement mon compte</button><button type="button" class="linkbtn" data-action="del-cancel">Annuler</button></div></form>`
+          : `<button type="button" class="btn" data-action="del-start">Supprimer mon compte</button>`}</div>`;
+  }
+  function spaceView() {
+    document.getElementById("brand-text").textContent = data.coach.display_name.toUpperCase();
+    document.title = `Mon espace · ${data.coach.display_name}`;
+    const unread = (data.messages || []).filter((m) => m.unread).length;
+    const T = [["home", "Accueil", ICON.home], ["progress", "Progression", ICON.chart], ["messages", "Messages", ICON.chat], ["settings", "Réglages", ICON.gear]];
+    return `${tab === "home" ? homeTab() : tab === "progress" ? progressTab() : tab === "messages" ? messagesTab() : settingsTab()}
+      <div style="text-align:center"><button class="btn btn--sm" type="button" id="logout">Me déconnecter</button></div>
+      <nav class="bnav" aria-label="Rubriques">${T.map(([k, l, ic]) => `<button type="button" data-tab="${k}" ${tab === k ? 'aria-current="true"' : ""}>${ic}${l}${k === "messages" && unread ? `<span class="dot" aria-label="${unread} non lu">${unread}</span>` : ""}</button>`).join("")}</nav>`;
+  }
+
+  function render() {
+    if (unsub) { el.innerHTML = unsubView(); return; }
+    if (act) { el.innerHTML = activateView(); return; }
+    el.innerHTML = data ? spaceView() : loginView();
+    if (data && tab === "messages") { const t = document.getElementById("thread"); if (t) t.scrollTop = t.scrollHeight; }
+  }
+
+  // ------------------------------------------------------------ données ---
+  const call = (name, args) => api.spaceCall(session, name, args || {});
+  async function reload() { data = await api.playerSpace(session); }
+  async function open(sess) {
+    data = await api.playerSpace(sess);
+    if (data) { session = sess; setS(sess); } else { setS(""); }
+    return !!data;
+  }
+  function fail(x) {
+    if (x && x.code === "SESSION") { setS(""); data = null; session = ""; mode = "login"; err = "Votre session a expiré. Reconnectez-vous."; return; }
+    ui.noteErr = (x && x.message) || "Une erreur est survenue.";
+  }
+  async function loadSlots() {
+    if (!data) return;
+    if (!ui.sid) { const sv = data.services || []; ui.sid = (data.last_service && data.last_service.service_id) || (sv[0] && sv[0].id) || ""; }
+    if (!ui.sid || ui.slotsFor === ui.sid) return;
+    ui.slotsFor = ui.sid; ui.slots = null; ui.pick = ""; ui.more = false;
+    const tz = data.coach.timezone || "Europe/Paris", today = P.localYmd(new Date(), tz);
+    try { ui.slots = (await api.getSlots(slug, ui.sid, today, P.addDays(today, 14))) || []; } catch { ui.slots = []; }
+    if (data && tab === "home") render();
+  }
+  async function action(name, fn) {
+    ui.note = ""; ui.noteErr = "";
+    try { await fn(); await reload(); } catch (x) { fail(x); }
+    busy = false; render();
+    if (data && tab === "home") loadSlots();
+  }
+
+  el.addEventListener("click", async (e) => {
+    const m = e.target.closest("[data-mode]");
+    if (m) { e.preventDefault(); mode = m.dataset.mode; err = ""; info = ""; render(); return; }
+    if (e.target.id === "logout") { api.playerLogout(session); setS(""); data = null; session = ""; mode = "login"; render(); return; }
+    const tb = e.target.closest("[data-tab]");
+    if (tb) {
+      tab = tb.dataset.tab; ui.note = ""; ui.noteErr = ""; ui.pwMsg = ""; render();
+      if (tab === "home") loadSlots();
+      if (tab === "messages" && (data.messages || []).some((x) => x.unread)) { try { await call("messages_read"); await reload(); render(); } catch {} }
+      return;
+    }
+    const sl = e.target.closest("[data-slot]");
+    if (sl) { ui.pick = ui.pick === sl.dataset.slot ? "" : sl.dataset.slot; ui.note = ""; ui.noteErr = ""; render(); return; }
+    const a = e.target.closest("[data-action]");
+    if (!a) return;
+    const k = a.dataset.action;
+    if (k === "more-slots") { ui.more = true; render(); }
+    else if (k === "toggle-hist") { ui.allHist = !ui.allHist; render(); }
+    else if (k === "goto-book") { const q = document.getElementById("quick-book"); if (q) q.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    else if (k === "rebook") {
+      ui.sid = a.dataset.sid; ui.slotsFor = ""; ui.pick = ""; ui.more = false; render(); loadSlots();
+      const q = document.getElementById("quick-book"); if (q) q.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    else if (k === "qr") { const t = document.getElementById("msg-body"); if (t) { t.value = a.dataset.t; t.focus(); } }
+    else if (k === "goal-sugg") await action("goal", () => call("goal_add", { p_title: a.dataset.t }));
+    else if (k === "book-now") {
+      busy = true; render();
+      await action("book", async () => {
+        const r = await call("book", { p_service_id: ui.sid, p_starts_at: ui.pick });
+        ui.note = r && r.status === "pending" ? "Demande envoyée : votre coach la valide très vite. Vous recevez un email." : "Séance réservée ! Un email de confirmation vous est envoyé.";
+        ui.pick = ""; ui.slotsFor = "";
+      });
+    }
+    else if (k === "wl-add") {
+      const d = (document.getElementById("wl-date") || {}).value || ""; ui.wlDate = d;
+      if (!d) { ui.noteErr = "Choisissez d'abord une date."; render(); return; }
+      await action("wl", async () => { await call("waitlist_add", { p_service_id: ui.sid, p_date: d }); ui.note = "C'est noté : vous serez prévenu par email si une place se libère ce jour-là."; ui.wlDate = ""; });
+    }
+    else if (k === "wl-cancel") await action("wl", () => call("waitlist_cancel", { p_id: a.dataset.id }));
+    else if (k === "ics") { const u = data.upcoming[Number(a.dataset.i)]; if (u) download("seance-padel.ics", buildIcs([u])); }
+    else if (k === "ics-all") download("mes-seances-padel.ics", buildIcs(data.upcoming));
+    else if (k === "goal-done") await action("goal", () => call("goal_set", { p_id: a.dataset.id, p_progress: 100, p_status: "done" }));
+    else if (k === "goal-reopen") await action("goal", () => call("goal_set", { p_id: a.dataset.id, p_progress: 90, p_status: "active" }));
+    else if (k === "goal-del") await action("goal", () => call("goal_set", { p_id: a.dataset.id, p_progress: 0, p_status: "cancelled" }));
+    else if (k === "install" && ui.installEvt) { ui.installEvt.prompt(); try { await ui.installEvt.userChoice; } catch {} ui.installEvt = null; render(); }
+    else if (k === "export") {
+      ui.exportBusy = true; render();
+      try { const r = await call("export"); download("mes-donnees-padel.json", JSON.stringify(r, null, 2), "application/json"); } catch (x) { fail(x); }
+      ui.exportBusy = false; render();
+    }
+    else if (k === "del-start") { ui.confirmDel = true; ui.pwMsg = ""; render(); }
+    else if (k === "del-cancel") { ui.confirmDel = false; ui.pwMsg = ""; render(); }
+  });
+
+  el.addEventListener("input", (e) => { if (e.target.id === "wl-date") ui.wlDate = e.target.value; });
+  el.addEventListener("change", async (e) => {
+    if (e.target.id === "wl-date") ui.wlDate = e.target.value;
+    if (e.target.id === "q-sv") { ui.sid = e.target.value; ui.slotsFor = ""; ui.pick = ""; render(); loadSlots(); return; }
+    if (e.target.matches("[data-goal-range]")) {
+      const id = e.target.dataset.goalRange, v = Number(e.target.value);
+      await action("goal", () => call("goal_set", { p_id: id, p_progress: v, p_status: v >= 100 ? "done" : "active" }));
+    }
+  });
+
+  el.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const id = e.target.id;
+    err = "";
+    try {
+      if (id === "login") {
+        const em = lastEmail = document.getElementById("l-email").value.trim(), pw = document.getElementById("l-pass").value;
+        if (!em || !pw) { err = "Indiquez votre email et votre mot de passe."; render(); return; }
+        busy = true; render();
+        const sess = await api.playerLogin(slug, em, pw);
+        if (!(await open(sess))) err = "Connexion impossible. Réessayez.";
+      } else if (id === "ask") {
+        const em = lastEmail = document.getElementById("em").value.trim();
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { err = "Adresse email invalide."; render(); return; }
+        busy = true; render();
+        await api.playerRequestAccess(slug, em);
+        info = "Si cette adresse correspond à un joueur ayant déjà pris un cours avec ce coach, un email vient de partir. Pensez à vérifier vos courriers indésirables.";
+      } else if (id === "setpw") {
+        const a = document.getElementById("p1").value, b = document.getElementById("p2").value;
+        if (a.length < 8) { err = "Le mot de passe doit contenir au moins 8 caractères."; render(); return; }
+        if (a !== b) { err = "Les deux mots de passe ne sont pas identiques."; render(); return; }
+        busy = true; render();
+        const sess = await api.playerSetPassword(act, a);
+        setS(sess); location.replace("mon-espace.html" + cq); return;
+      } else if (id === "unsub") {
+        busy = true; render();
+        await api.setPlayerOptout(unsub, true);
+        info = "Vous ne recevrez plus d'annonces de stages par email.";
+      } else if (id === "goal-form") {
+        const t = document.getElementById("goal-title").value.trim();
+        if (!t) return;
+        await action("goal", () => call("goal_add", { p_title: t })); return;
+      } else if (id === "msg-form") {
+        const t = document.getElementById("msg-body").value.trim();
+        if (!t) return;
+        busy = true; render();
+        await action("msg", () => call("message_send", { p_body: t })); return;
+      } else if (id === "profile-form") {
+        const v = (i) => document.getElementById(i);
+        ui.note = ""; ui.noteErr = "";
+        try {
+          await call("update_profile", { p_phone: v("s-phone").value, p_email: v("s-email").value, p_pref_reminders: v("s-rem").checked, p_pref_pack_alerts: v("s-pack").checked, p_pref_messages: v("s-msg").checked, p_marketing_optout: !v("s-opt").checked });
+          await reload(); ui.note = "Modifications enregistrées.";
+        } catch (x) { fail(x); }
+        render(); return;
+      } else if (id === "pw-form") {
+        const o = document.getElementById("pw-old").value, n = document.getElementById("pw-new").value;
+        ui.pwMsg = ""; ui.pwOk = false;
+        try {
+          const r = await call("change_password", { p_old: o, p_new: n });
+          if (r && r.error) ui.pwMsg = r.message; else { ui.pwOk = true; ui.pwMsg = "Mot de passe modifié. Vos autres appareils sont déconnectés."; }
+        } catch (x) { ui.pwMsg = x.message || "Une erreur est survenue."; }
+        render(); return;
+      } else if (id === "del-form") {
+        const pw = document.getElementById("del-pw").value;
+        ui.pwMsg = "";
+        try {
+          const r = await call("delete_account", { p_password: pw });
+          if (r && r.error) { ui.pwMsg = r.message; render(); return; }
+          setS(""); data = null; session = ""; mode = "login"; ui.confirmDel = false; info = "";
+          err = ""; render();
+          el.insertAdjacentHTML("afterbegin", `<div class="panel"><p class="alert alert--ok" role="status">Votre compte a été supprimé. Merci d'avoir utilisé l'espace joueur.</p></div>`);
+          return;
+        } catch (x) { ui.pwMsg = x.message || "Une erreur est survenue."; render(); return; }
+      }
+    } catch (x) { err = x.message || "Une erreur est survenue."; }
+    busy = false; render();
+    if (data && tab === "home") loadSlots();
+  });
+
+  window.addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); ui.installEvt = e; if (data && tab === "settings") render(); });
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("espace-sw.js").catch(() => {});
+
+  (async function init() {
+    try {
+      api = await P.backend();
+      if (!act && !unsub) { const s0 = getS(); if (s0) await open(s0); }
+    } catch (x) { data = null; }
+    render();
+    if (data && tab === "home") loadSlots();
+    if (data && tab === "messages" && (data.messages || []).some((x) => x.unread)) { try { await call("messages_read"); await reload(); render(); } catch {} }
+  })();
+})();
+</script>
+</body>
+</html>

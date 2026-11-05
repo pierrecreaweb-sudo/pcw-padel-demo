@@ -1,0 +1,32 @@
+{
+  "name": "Mon espace · Lucas Ferrand, coach de padel à ",
+  "short_name": "Mon espace",
+  "description": "Mes séances, mes packs et ma progression.",
+  "start_url": "mon-espace.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0E2A52",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "admin/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "admin/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "admin/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

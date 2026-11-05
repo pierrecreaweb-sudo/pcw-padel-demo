@@ -443,3 +443,28 @@ a { color: inherit; }
 .shot img, .coach__portrait img, .gal-item img {
   object-position: var(--fx, 50%) var(--fy, 50%); transform: scale(var(--fz, 1)); transform-origin: var(--fx, 50%) var(--fy, 50%);
 }
+
+/* --------------------------------------------------- stages, packs --- */
+.stages { display: grid; gap: 16px; margin-top: 12px; }
+.stage { display: flex; flex-direction: column; gap: 10px; padding: 24px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line); min-width: 0; }
+.stage__top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.stage__title { margin: 0; font: 800 22px/1.2 var(--f-display); font-stretch: 108%; color: var(--brand); }
+.stage__when { margin: 0; font-weight: 700; }
+.stage__desc { margin: 0; color: var(--muted); white-space: pre-line; }
+.stage__action { margin-top: 6px; }
+.stage-form { display: grid; gap: 12px; padding: 16px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); }
+.stage-form .check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; color: var(--muted); }
+.stage-form .check input { width: 20px; height: 20px; flex: none; margin-top: 2px; }
+.stage-form__bar { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.stage-form__note, .pack-note { margin: 0; font-size: 13px; }
+.pack-note { margin-top: 16px; }
+
+/* ------------------------------------------------------- menu mobile --- */
+.burger { display: none; width: 44px; height: 44px; margin-left: 8px; border: 1px solid rgba(255, 255, 255, .35); border-radius: 12px; background: transparent; cursor: pointer;
+  flex-direction: column; justify-content: center; align-items: center; gap: 5px; padding: 0; }
+.burger span { display: block; width: 20px; height: 2px; background: var(--on-brand); border-radius: 2px; }
+.mobile-menu { display: none; border-top: 1px solid rgba(255, 255, 255, .18); background: var(--brand); padding: 8px 20px 16px; }
+.mobile-menu a { display: block; padding: 14px 4px; color: var(--on-brand); font-weight: 600; font-size: 17px; text-decoration: none; border-bottom: 1px solid rgba(255, 255, 255, .12); }
+.mobile-menu a:last-child { border-bottom: 0; }
+.mobile-menu a:last-child { color: var(--ball); }
+@media (max-width: 860px) { .burger { display: flex; } .mobile-menu:not([hidden]) { display: block; } .topbar .btn { margin-left: auto; } }

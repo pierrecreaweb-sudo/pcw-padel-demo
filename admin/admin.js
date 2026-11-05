@@ -9,7 +9,7 @@
   const S = {
     api: null, user: null, coaches: [], coach: null, loading: false,
     services: [], locations: [], rules: [], media: [], messages: [], timeOff: [], players: [], testimonials: [], site: null, bookings: [],
-    reviews: [], busy: [], calImport: null, allBookings: null, allLoadedAt: 0,
+    reviews: [], stages: [], stageRegs: [], packs: [], playerPacks: [], goals: [], skillRatings: [], pMessages: [], busy: [], calImport: null, allBookings: null, allLoadedAt: 0,
     isAdmin: false,
     ui: { resFilter: "upcoming", resQuery: "", playerQuery: "", weekStart: null },
     recovery: false,
@@ -19,6 +19,8 @@
 
   // ================================================================= icônes ===
   const I = {
+    receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+    bell: '<path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/>',
     home: '<path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
     list: '<path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01"/>',
     cal: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
@@ -36,6 +38,7 @@
     out: '<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 16l-4-4 4-4M6 12h11"/>',
     chart: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
     star: '<path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 16.9l-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z"/>',
+    flag: '<path d="M5 21V4M5 4h12l-2 4 2 4H5"/>',
     share: '<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"/>',
   };
   const icon = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${I[n]}</svg>`;
@@ -102,6 +105,8 @@
     ]);
     Object.assign(S, { services, locations, rules, timeOff, players, testimonials, site, media, messages: messages.reverse() });
     S.reviews = await S.api.list("reviews", id, "created_at").catch(() => []);
+    const opt = (t, o) => S.api.list(t, id, o).catch(() => []);
+    [S.stages, S.stageRegs, S.packs, S.playerPacks, S.goals, S.skillRatings, S.pMessages] = await Promise.all([opt("stages", "starts_at"), opt("stage_registrations", "created_at"), opt("packs", "position,name"), opt("player_packs", "created_at"), opt("player_goals", "created_at"), opt("player_skill_ratings", "rated_at"), opt("player_messages", "created_at")]);
     await reloadCalendar();
     S.allBookings = null;
     await loadBookings();
@@ -118,6 +123,7 @@
     dashboard: { label: "Accueil", icon: "home", render: viewDashboard },
     reservations: { label: "Réservations", icon: "list", render: viewReservations },
     agenda: { label: "Agenda", icon: "cal", render: viewAgenda },
+    stages: { label: "Stages", icon: "flag", render: viewStages },
     joueurs: { label: "Joueurs", icon: "users", render: viewPlayers },
     statistiques: { label: "Statistiques", short: "Stats", icon: "chart", render: viewStats },
     avis: { label: "Avis", icon: "star", render: viewReviews },
@@ -125,19 +131,28 @@
     messages: { label: "Messages", icon: "mail", render: viewMessages },
     prestations: { label: "Prestations et lieux", short: "Prestations", icon: "tag", render: viewServices },
     "mon-site": { label: "Mon site", icon: "brush", render: viewSite },
+    factures: { label: "Mes factures", short: "Factures", icon: "receipt", render: viewInvoices },
     reglages: { label: "Réglages", icon: "gear", render: viewSettings },
+    pcw: { label: "Console PCW", short: "Console", icon: "chart", render: viewPcw },
   };
   // Menu groupé dans l'ordre d'usage : le quotidien d'abord, puis le suivi de l'activité,
   // puis la vitrine (site et partage), enfin les réglages.
   const NAV_GROUPS = [
     { title: null, keys: ["dashboard"] },
-    { title: "Au quotidien", keys: ["reservations", "agenda", "messages", "joueurs"] },
+    { title: "Au quotidien", keys: ["reservations", "agenda", "stages", "messages", "joueurs"] },
     { title: "Mon activité", keys: ["statistiques", "avis"] },
     { title: "Ma vitrine", keys: ["partager", "mon-site", "prestations"] },
-    { title: "Compte", keys: ["reglages"] },
+    { title: "Compte", keys: ["factures", "reglages"] },
   ];
-  const currentView = () => { const h = location.hash.replace("#", ""); return VIEWS[h] ? h : "dashboard"; };
-  window.addEventListener("hashchange", () => { closeDrawer(); render(); window.scrollTo(0, 0); });
+  const currentView = () => { const h = location.hash.replace("#", ""); return VIEWS[h] && (h !== "pcw" || S.isAdmin) ? h : "dashboard"; };
+  const inConsole = () => Boolean(S.user && S.isAdmin && currentView() === "pcw");
+  async function ensureCoach() {
+    if (!S.user || S.coach || !S.coaches || !S.coaches.length || inConsole()) return;
+    let saved = null;
+    try { saved = localStorage.getItem("pcw-coach-id"); } catch { saved = null; }
+    await selectCoach((S.coaches.find((c) => c.id === saved) || S.coaches[0]).id);
+  }
+  window.addEventListener("hashchange", async () => { closeDrawer(); await ensureCoach(); render(); window.scrollTo(0, 0); });
 
 
   // ============================================================= messages ===
@@ -192,10 +207,12 @@
   }
 
   // ============================================================== rendu ===
-  function render() {
+  function render() { renderCore(); navTick(); }
+  function renderCore() {
     if (!S.api) return;
     if (S.recovery) return renderRecovery();
     if (!S.user) return renderLogin();
+    if (inConsole()) return renderConsole();
     if (!S.coach) {
       app.innerHTML = `<div class="login"><div class="login__card"><h1>Aucun site rattaché</h1>
         <p>Votre compte n'est relié à aucun site de coach pour le moment. Contactez Pierre Créa Web.</p>
@@ -203,22 +220,23 @@
       return;
     }
     const v = currentView();
-    const pending = S.bookings.filter((b) => b.status === "pending" && !isPast(b)).length;
-    const unread = S.messages.filter((m) => m.status === "new").length;
-    const badgeFor = (key) => key === "reservations" && pending ? `<span class="badge">${pending}</span>` : key === "messages" && unread ? `<span class="badge">${unread}</span>` : "";
-    const navItem = (key) => `<a class="navlink" href="#${key}" ${v === key ? 'aria-current="page"' : ""}>${icon(VIEWS[key].icon)}<span>${VIEWS[key].label}</span>
+    const badgeFor = (key) => { const n = navCountOf(key); return n ? `<span class="badge">${n > 99 ? "99+" : n}</span>` : ""; };
+    const hot = (key) => (navCountOf(key) ? " has-notif" : "");
+    const navItem = (key) => `<a class="navlink${hot(key)}" href="#${key}" data-navkey="${key}" ${v === key ? 'aria-current="page"' : ""}>${icon(VIEWS[key].icon)}<span>${VIEWS[key].label}</span>
       ${badgeFor(key)}</a>`;
     const siteUrl = `../index.html?c=${encodeURIComponent(S.coach.slug)}`;
-    const tab = (k) => `<a class="tab" href="#${k}" ${v === k ? 'aria-current="page"' : ""}>${icon(VIEWS[k].icon)}<span>${VIEWS[k].short || VIEWS[k].label}</span>${badgeFor(k)}</a>`;
+    const tab = (k) => `<a class="tab${hot(k)}" href="#${k}" data-navkey="${k}" ${v === k ? 'aria-current="page"' : ""}>${icon(VIEWS[k].icon)}<span>${VIEWS[k].short || VIEWS[k].label}</span>${badgeFor(k)}</a>`;
     const inMore = !["dashboard", "reservations", "agenda", "messages"].includes(v);
     app.innerHTML = `<div class="shell">
       <aside class="side">
         <div class="side__brand"><span class="dot"></span><span>${esc(S.coach.display_name.toUpperCase())}</span></div>
         ${S.coaches.length > 1 ? `<select class="coach-switch" id="coach-switch" aria-label="Changer de coach">${S.coaches.map((c) =>
           `<option value="${c.id}" ${c.id === S.coach.id ? "selected" : ""}>${esc(c.display_name)}</option>`).join("")}</select>` : ""}
+        ${S.isAdmin && S.api.mode !== "demo" ? `<a class="navlink${navCountOf("console") ? " has-notif" : ""}" href="#pcw" data-navkey="console" style="margin:0 0 10px;background:rgba(255,255,255,.08)">${icon("left")}<span>Console PCW</span>${badgeFor("console")}</a>` : ""}
         <nav aria-label="Menu">${NAV_GROUPS.map((g) => `${g.title ? `<span class="nav-group">${g.title}</span>` : ""}${g.keys.map(navItem).join("")}`).join("")}</nav>
         <div class="side__foot">
           <a href="${siteUrl}" target="_blank" rel="noopener">Voir mon site ↗</a>
+          <a href="../aide.html" target="_blank" rel="noopener">Aide et contact ↗</a>
           <button type="button" data-action="sign-out">Se déconnecter</button>
         </div>
       </aside>
@@ -227,7 +245,7 @@
         ${tab("dashboard")}${tab("reservations")}
         <a class="tab tab--center" href="#agenda" ${v === "agenda" ? 'aria-current="page"' : ""}><span class="tab__bubble">${icon(VIEWS.agenda.icon)}</span><span>Agenda</span></a>
         ${tab("messages")}
-        <button type="button" class="tab" data-action="more" ${inMore ? 'aria-current="page"' : ""}>${icon("more")}<span>Plus</span></button>
+        <button type="button" class="tab${hot("more")}" data-action="more" data-navkey="more" ${inMore ? 'aria-current="page"' : ""}>${icon("more")}<span>Plus</span>${badgeFor("more")}</button>
       </nav>
     </div>`;
     const page = document.getElementById("page");
@@ -251,6 +269,7 @@
       <form id="login-form" novalidate>
         <label class="field"><span>Email</span><input type="email" id="l-email" autocomplete="email" required value="${demo ? "coach@exemple.fr" : ""}"></label>
         <label class="field"><span>Mot de passe</span><input type="password" id="l-pass" autocomplete="current-password" ${demo ? 'placeholder="Pas nécessaire en démo"' : "required"}></label>
+        <label class="remember"><input type="checkbox" id="l-remember" ${S.api.getRemember && S.api.getRemember() ? "checked" : ""}><span>Rester connecté sur cet appareil</span></label>
         ${msg ? `<div class="alert alert--${kind}" role="alert">${esc(msg)}</div>` : ""}
         <button type="submit" class="btn btn--primary btn--block">Se connecter</button>
         <div class="links">
@@ -258,6 +277,8 @@
           <button type="button" class="btn btn--sm" data-action="forgot">Mot de passe oublié</button>
         </div>
       </form></div></div>`;
+    const remember = document.getElementById("l-remember");
+    if (remember) remember.addEventListener("change", () => S.api.setRemember && S.api.setRemember(remember.checked));
     document.getElementById("login-form").addEventListener("submit", async (e) => {
       e.preventDefault();
       const email = document.getElementById("l-email").value.trim();
@@ -287,6 +308,13 @@
     if (!S.user) return render();
     S.coaches = await S.api.myCoaches();
     try { S.isAdmin = await S.api.isPlatformAdmin(); } catch { S.isAdmin = false; }
+    // L'équipe PCW arrive sur la console (vue d'ensemble de tous les coachs), sans choisir de coach.
+    const hash = location.hash.replace("#", "");
+    if (S.isAdmin && S.api.mode !== "demo" && (!hash || hash === "pcw")) {
+      S.coach = null; S.pcw = null;
+      history.replaceState(null, "", "#pcw");
+      return render();
+    }
     let saved = null;
     try { saved = localStorage.getItem("pcw-coach-id"); } catch { saved = null; }
     const pick = S.coaches.find((c) => c.id === saved) || S.coaches[0];
@@ -488,6 +516,8 @@
           ${p.id ? `<button class="btn btn--sm" style="margin-top:10px" data-player="${p.id}">Fiche joueur</button>` : ""}
         </section>
         ${b.player_message ? `<div><div class="muted" style="font-size:13px;font-weight:700;margin-bottom:4px">Message du joueur</div><p style="margin:0">${esc(b.player_message)}</p></div>` : ""}
+        ${bookingPackHtml(b)}
+        <label class="field"><span>Points travaillés <small>(visibles par le joueur dans son espace)</small></span><textarea id="b-pnotes" maxlength="2000" placeholder="Ex. : service, placement en fond de court, sortie de vitre…">${esc(b.player_notes || "")}</textarea></label>
         <label class="field"><span>Notes privées</span><textarea id="b-notes" placeholder="Visible par vous seul : exercices travaillés, objectifs…">${esc(b.coach_notes || "")}</textarea></label>
         <div id="move-zone"></div>`,
       foot: `${actions}<button class="btn" data-action="save-notes" data-id="${b.id}">Enregistrer les notes</button>`,
@@ -766,7 +796,8 @@
           <div class="rows">${S.locations.map((l) => `<button type="button" class="row" style="grid-template-columns:minmax(0,1fr) auto" data-action="edit-location" data-id="${l.id}">
             <span class="row__main"><span class="row__title">${esc(l.name)}</span><span class="row__sub">${esc(l.address || "Adresse non renseignée")}</span><span class="row__sub">Rétrocession : ${esc(retroLabel(l))}</span></span>
             <span class="muted">Modifier</span></button>`).join("") || `<div class="empty">Ajoutez les clubs où vous donnez vos cours.</div>`}</div></section>
-      </div>`;
+      </div>
+      ${packsCard()}`;
   }
 
   function serviceDrawer(id, confirmDelete) {
@@ -857,6 +888,198 @@
     } catch (e) { toast(errMsg(e)); }
   }
 
+  // ================================================================ stages ===
+  const REG_ST = { pending: ["pending", "À confirmer"], confirmed: ["confirmed", "Confirmée"], cancelled: ["cancelled", "Annulée"] };
+  const stageRegs = (id) => S.stageRegs.filter((r) => r.stage_id === id);
+  const stageTaken = (id) => stageRegs(id).filter((r) => r.status !== "cancelled").reduce((n, r) => n + (r.party_size || 1), 0);
+  const stageWhen = (s) => {
+    const a = P.fmtDate(s.starts_at, tz(), "short"), b = P.fmtDate(s.ends_at, tz(), "short");
+    return a === b ? `${a}, ${hm(s.starts_at)} – ${hm(s.ends_at)}` : `Du ${a} (${hm(s.starts_at)}) au ${b} (${hm(s.ends_at)})`;
+  };
+  function stageRow(s) {
+    const taken = stageTaken(s.id), waiting = stageRegs(s.id).filter((r) => r.status === "pending").length;
+    return `<button type="button" class="row" style="grid-template-columns:minmax(0,1fr) auto" data-action="edit-stage" data-id="${s.id}">
+      <span class="row__main"><span class="row__title">${esc(s.title)} ${s.published ? "" : pill("neutral", "Masqué")}${waiting ? " " + pill("pending", waiting + " à confirmer") : ""}</span>
+        <span class="row__sub">${esc(stageWhen(s))}</span>
+        <span class="row__sub">${taken} / ${s.capacity} places prises · ${s.price_cents ? euros(s.price_cents) : "Prix sur demande"}${s.block_agenda ? " · agenda bloqué" : ""}</span></span>
+      <span class="muted">Ouvrir</span></button>`;
+  }
+  function viewStages() {
+    const now = Date.now();
+    const sorted = [...S.stages].sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+    const up = sorted.filter((s) => new Date(s.ends_at) > now), past = sorted.filter((s) => new Date(s.ends_at) <= now).reverse();
+    return `<div class="page__head"><div><h1>Stages</h1><p>Vos périodes de stage : elles bloquent votre agenda et les joueurs s'inscrivent depuis votre site.</p></div>
+        <div class="btn-row"><button class="btn btn--primary" data-action="edit-stage">${icon("plus")} Nouveau stage</button></div></div>
+      <section class="card"><h2>À venir</h2>${up.length ? `<div class="rows">${up.map(stageRow).join("")}</div>`
+        : `<div class="empty">Aucun stage prévu. Créez-en un : il apparaît sur votre site avec un bouton d'inscription.</div>`}</section>
+      ${past.length ? `<section class="card"><h2>Passés</h2><div class="rows">${past.slice(0, 20).map(stageRow).join("")}</div></section>` : ""}`;
+  }
+  function stageDrawer(id, confirmDelete) {
+    const d0 = P.addDays(todayYmd(), 7);
+    const s = id ? S.stages.find((x) => x.id === id) : { title: "", description: "", starts_at: P.zonedToUtc(d0, "09:00", tz()).toISOString(), ends_at: P.zonedToUtc(d0, "17:00", tz()).toISOString(), location_id: null, price_cents: 0, capacity: 8, level: "", block_agenda: true, published: true, registration_open: true };
+    if (!s) return;
+    const regs = id ? stageRegs(id) : [];
+    const taken = id ? stageTaken(id) : 0;
+    const regHtml = id ? `<section class="card" style="padding:14px"><h2 style="font-size:15px;margin-bottom:8px">Inscriptions <small>${taken} / ${s.capacity} places prises</small></h2>
+      ${regs.length ? `<div class="rows">${regs.map((r) => `<div class="row" style="grid-template-columns:minmax(0,1fr) auto;align-items:start">
+        <span class="row__main"><span class="row__title">${esc(`${r.first_name} ${r.last_name || ""}`.trim())} · ${r.party_size} pers. ${pill(...REG_ST[r.status])} ${r.payment_status === "paid" ? pill("confirmed", "Payé") : ""}</span>
+          <span class="row__sub"><a href="tel:${esc(String(r.phone).replace(/\s/g, ""))}">${esc(r.phone)}</a> · <span style="user-select:all">${esc(r.email)}</span></span>
+          ${r.message ? `<span class="row__sub">« ${esc(r.message)} »</span>` : ""}</span>
+        <span class="btn-row" style="flex-wrap:wrap;justify-content:flex-end">
+          ${r.status !== "confirmed" ? `<button class="btn btn--sm btn--primary" data-action="reg-set" data-id="${r.id}" data-status="confirmed">Confirmer</button>` : ""}
+          ${r.status !== "cancelled" ? `<button class="btn btn--sm" data-action="reg-set" data-id="${r.id}" data-status="cancelled">Annuler</button>` : `<button class="btn btn--sm" data-action="reg-set" data-id="${r.id}" data-status="pending">Rétablir</button>`}
+          <button class="btn btn--sm" data-action="reg-pay" data-id="${r.id}">${r.payment_status === "paid" ? "Non payé" : "Payé"}</button></span></div>`).join("")}</div>`
+        : `<div class="empty" style="padding:10px 0">Aucune inscription pour l'instant.</div>`}</section>` : "";
+    openDrawer({
+      title: id ? "Modifier le stage" : "Nouveau stage",
+      body: `${confirmDelete ? `<div class="confirm-box">Supprimer « ${esc(s.title)} » ? Les inscriptions associées sont supprimées aussi. Pour le retirer du site sans le supprimer, décochez « Visible ».
+          <div class="btn-row"><button class="btn" data-action="edit-stage" data-id="${id}">Non, garder</button><button class="btn btn--dark" data-action="delete-stage" data-id="${id}">Oui, supprimer</button></div></div>` : ""}
+        <form class="form-grid" id="stage-form" onsubmit="return false">
+          <label class="field full"><span>Titre</span><input type="text" id="st-title" maxlength="120" value="${esc(s.title)}" placeholder="Stage d'été – 3 jours"></label>
+          <label class="field full"><span>Description</span><textarea id="st-desc" maxlength="2000" placeholder="Programme, public, matériel à prévoir…">${esc(s.description || "")}</textarea></label>
+          <label class="field"><span>Début : date</span><input type="date" id="st-sd" value="${P.localYmd(new Date(s.starts_at), tz())}"></label>
+          <label class="field"><span>Début : heure</span><input type="time" id="st-st" step="900" value="${P.localHm(new Date(s.starts_at), tz())}"></label>
+          <label class="field"><span>Fin : date</span><input type="date" id="st-ed" value="${P.localYmd(new Date(s.ends_at), tz())}"></label>
+          <label class="field"><span>Fin : heure</span><input type="time" id="st-et" step="900" value="${P.localHm(new Date(s.ends_at), tz())}"></label>
+          <label class="field"><span>Lieu</span><select id="st-loc"><option value="">Non précisé</option>${S.locations.map((l) => `<option value="${l.id}" ${l.id === s.location_id ? "selected" : ""}>${esc(l.name)}</option>`).join("")}</select></label>
+          <label class="field"><span>Niveau</span><input type="text" id="st-level" maxlength="80" value="${esc(s.level || "")}" placeholder="Tous niveaux"></label>
+          <label class="field"><span>Prix par personne (€)</span><input type="number" id="st-price" min="0" step="1" inputmode="decimal" value="${(s.price_cents / 100).toString()}"></label>
+          <label class="field"><span>Nombre de places</span><input type="number" id="st-cap" min="1" max="60" value="${s.capacity}"></label>
+          <label class="switch full"><span><b>Bloquer mon agenda</b><small>Aucune réservation normale pendant le stage.</small></span><input type="checkbox" id="st-block" ${s.block_agenda ? "checked" : ""}></label>
+          <label class="switch full"><span><b>Visible sur mon site</b><small>Décochez pour le préparer sans le publier.</small></span><input type="checkbox" id="st-pub" ${s.published ? "checked" : ""}></label>
+          <label class="switch full"><span><b>Inscriptions ouvertes</b><small>Décochez quand c'est complet ou clos.</small></span><input type="checkbox" id="st-open" ${s.registration_open ? "checked" : ""}></label>
+          ${id ? "" : `<label class="switch full"><span><b>Prévenir mes joueurs par email</b><small>Un email avec bouton d'inscription part à tous ceux qui ont déjà pris un cours avec vous (sauf ceux qui s'y opposent).</small></span><input type="checkbox" id="st-announce" checked></label>`}
+          <p class="muted full" style="margin:0;font-size:13px">Paiement en ligne des stages : <b>prochainement disponible</b>. Pour l'instant, vous encaissez vous-même et cochez « Payé ».</p>
+        </form>${regHtml}`,
+      foot: `<button class="btn btn--primary" data-action="save-stage" data-id="${id || ""}">Enregistrer</button>${id ? `<button class="btn btn--danger" data-action="ask-delete-stage" data-id="${id}">Supprimer</button>` : ""}`,
+    });
+  }
+  async function saveStage(id) {
+    const v = (x) => document.getElementById(x);
+    const title = v("st-title").value.trim();
+    if (title.length < 2) return toast("Donnez un titre au stage.");
+    if (!v("st-sd").value || !v("st-st").value || !v("st-ed").value || !v("st-et").value) return toast("Indiquez les dates et heures de début et de fin.");
+    const start = P.zonedToUtc(v("st-sd").value, v("st-st").value, tz()), end = P.zonedToUtc(v("st-ed").value, v("st-et").value, tz());
+    if (!(end > start)) return toast("La fin doit être après le début.");
+    const price = Math.round(parseFloat(String(v("st-price").value || "0").replace(",", ".")) * 100);
+    if (!(price >= 0)) return toast("Prix invalide.");
+    const cap = Math.min(60, Math.max(1, parseInt(v("st-cap").value, 10) || 1));
+    const row = { title, description: v("st-desc").value.trim() || null, starts_at: start.toISOString(), ends_at: end.toISOString(),
+      location_id: v("st-loc").value || null, level: v("st-level").value.trim() || null, price_cents: price, capacity: cap,
+      block_agenda: v("st-block").checked, published: v("st-pub").checked, registration_open: v("st-open").checked };
+    if (!id) row.announce = v("st-announce") ? v("st-announce").checked : true;
+    try {
+      if (id) { const r = await S.api.update("stages", id, row); S.stages[S.stages.findIndex((x) => x.id === id)] = r; }
+      else S.stages.push(await S.api.insert("stages", { ...row, coach_id: S.coach.id }));
+      await reloadCalendar();
+      closeDrawer(); toast(!id && row.announce && row.published ? "Stage enregistré, vos joueurs sont prévenus par email" : row.block_agenda ? "Stage enregistré, agenda bloqué" : "Stage enregistré"); render();
+    } catch (e) { toast(errMsg(e)); }
+  }
+
+  // ================================================================= packs ===
+  const packLeft = (pp) => pp.sessions_total - pp.sessions_used;
+  const packExpired = (pp) => pp.expires_at && pp.expires_at < todayYmd();
+  const packsOf = (playerId) => S.playerPacks.filter((pp) => pp.player_id === playerId);
+  function packsCard() {
+    const list = [...S.packs].sort((a, b) => a.position - b.position);
+    return `<section class="card" id="s-packs"><h2>Packs de séances <button class="btn btn--sm" data-action="edit-pack">${icon("plus")} Ajouter</button></h2>
+      <p class="muted" style="margin:0 0 10px;font-size:14px">Ex. « 10 séances à 450 € ». Vous vendez le pack à un joueur depuis sa fiche ; chaque séance terminée est décomptée automatiquement.</p>
+      <div class="rows">${list.map((k) => `<button type="button" class="row" style="grid-template-columns:minmax(0,1fr) auto" data-action="edit-pack" data-id="${k.id}">
+        <span class="row__main"><span class="row__title">${esc(k.name)} ${k.active ? "" : pill("neutral", "Masqué")}</span>
+          <span class="row__sub">${k.sessions_count} séances · ${euros(k.price_cents)}${k.valid_days ? ` · valable ${k.valid_days} jours` : ""}</span></span><span class="muted">Modifier</span></button>`).join("")
+        || `<div class="empty">Aucun pack. Proposez des lots de séances à tarif dégressif.</div>`}</div>
+      ${(() => { const u = (S.playerPacks || []).filter((pp) => pp.payment_status === "unpaid"); return u.length ? `<h3 style="margin:16px 0 8px;font-size:15px">À encaisser (${u.length})</h3><div class="rows">${u.map((pp) => { const pl = playerById(pp.player_id) || {}; return `<div class="row" style="grid-template-columns:minmax(0,1fr) auto;align-items:center"><span class="row__main"><span class="row__title">${esc(`${pl.first_name || ""} ${pl.last_name || ""}`.trim() || "Joueur")} · ${esc(pp.name)}</span><span class="row__sub">${euros(pp.price_cents)}${pp.note ? " · " + esc(pp.note) : ""}${pl.phone ? " · " + esc(pl.phone) : ""}</span></span><button class="btn btn--sm" data-action="pack-pay" data-id="${pp.id}">Marquer payé</button></div>`; }).join("")}</div>` : ""; })()}
+      <p class="muted" style="margin:12px 0 0;font-size:13px">Paiement en ligne des packs : <b>prochainement disponible</b>.</p></section>`;
+  }
+  function packDrawer(id, confirmDelete) {
+    const k = id ? S.packs.find((x) => x.id === id) : { name: "", description: "", sessions_count: 10, price_cents: 45000, valid_days: 365, service_id: null, active: true };
+    if (!k) return;
+    openDrawer({
+      title: id ? "Modifier le pack" : "Nouveau pack",
+      body: `${confirmDelete ? `<div class="confirm-box">Supprimer « ${esc(k.name)} » ? Les packs déjà vendus à des joueurs restent valables.
+          <div class="btn-row"><button class="btn" data-action="edit-pack" data-id="${id}">Non, garder</button><button class="btn btn--dark" data-action="delete-pack" data-id="${id}">Oui, supprimer</button></div></div>` : ""}
+        <form class="form-grid" onsubmit="return false">
+          <label class="field full"><span>Nom</span><input type="text" id="pk-name" maxlength="100" value="${esc(k.name)}" placeholder="Pack 10 séances"></label>
+          <label class="field full"><span>Description</span><textarea id="pk-desc" maxlength="500">${esc(k.description || "")}</textarea></label>
+          <label class="field"><span>Nombre de séances</span><input type="number" id="pk-count" min="2" max="100" value="${k.sessions_count}"></label>
+          <label class="field"><span>Prix total (€)</span><input type="number" id="pk-price" min="0" step="1" inputmode="decimal" value="${(k.price_cents / 100).toString()}"></label>
+          <label class="field"><span>Validité (jours)</span><input type="number" id="pk-days" min="1" max="1095" value="${k.valid_days || ""}" placeholder="Sans limite"></label>
+          <label class="field"><span>Prestation concernée</span><select id="pk-svc"><option value="">Toutes</option>${S.services.map((s) => `<option value="${s.id}" ${s.id === k.service_id ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label>
+          <label class="switch full"><span><b>Visible sur mon site</b><small>Les visiteurs peuvent demander ce pack.</small></span><input type="checkbox" id="pk-active" ${k.active ? "checked" : ""}></label>
+        </form>`,
+      foot: `<button class="btn btn--primary" data-action="save-pack" data-id="${id || ""}">Enregistrer</button>${id ? `<button class="btn btn--danger" data-action="ask-delete-pack" data-id="${id}">Supprimer</button>` : ""}`,
+    });
+  }
+  async function savePack(id) {
+    const v = (x) => document.getElementById(x);
+    const name = v("pk-name").value.trim();
+    if (name.length < 2) return toast("Donnez un nom au pack.");
+    const count = parseInt(v("pk-count").value, 10);
+    if (!(count >= 2 && count <= 100)) return toast("Le pack doit contenir entre 2 et 100 séances.");
+    const price = Math.round(parseFloat(String(v("pk-price").value || "0").replace(",", ".")) * 100);
+    if (!(price >= 0)) return toast("Prix invalide.");
+    const days = v("pk-days").value ? parseInt(v("pk-days").value, 10) : null;
+    if (days !== null && !(days >= 1 && days <= 1095)) return toast("Validité : entre 1 et 1095 jours.");
+    const row = { name, description: v("pk-desc").value.trim() || null, sessions_count: count, price_cents: price, valid_days: days, service_id: v("pk-svc").value || null, active: v("pk-active").checked };
+    try {
+      if (id) { const r = await S.api.update("packs", id, row); S.packs[S.packs.findIndex((x) => x.id === id)] = r; }
+      else S.packs.push(await S.api.insert("packs", { ...row, coach_id: S.coach.id, position: S.packs.length }));
+      closeDrawer(); toast("Pack enregistré"); render();
+    } catch (e) { toast(errMsg(e)); }
+  }
+  function sellPackDrawer(playerId) {
+    const p = playerById(playerId);
+    const list = S.packs.filter((k) => k.active);
+    if (!list.length) { toast("Créez d'abord un pack dans « Prestations et lieux »."); return; }
+    const k0 = list[0];
+    openDrawer({
+      title: `Vendre un pack à ${fullName(p)}`,
+      body: `<form class="form-grid" onsubmit="return false">
+        <label class="field full"><span>Pack</span><select id="sp-pack">${list.map((k) => `<option value="${k.id}">${esc(k.name)} · ${k.sessions_count} séances · ${euros(k.price_cents)}</option>`).join("")}</select></label>
+        <label class="field"><span>Prix réglé (€)</span><input type="number" id="sp-price" min="0" step="1" inputmode="decimal" value="${(k0.price_cents / 100).toString()}"></label>
+        <label class="field"><span>Valable jusqu'au</span><input type="date" id="sp-exp" value="${k0.valid_days ? P.addDays(todayYmd(), k0.valid_days) : ""}"></label>
+        <label class="switch full"><span><b>Déjà payé</b><small>Cochez si le joueur vous a réglé le pack.</small></span><input type="checkbox" id="sp-paid"></label>
+      </form>`,
+      onMount: (el) => {
+        el.querySelector("#sp-pack").addEventListener("change", (e) => {
+          const k = S.packs.find((x) => x.id === e.target.value);
+          el.querySelector("#sp-price").value = (k.price_cents / 100).toString();
+          el.querySelector("#sp-exp").value = k.valid_days ? P.addDays(todayYmd(), k.valid_days) : "";
+        });
+      },
+      foot: `<button class="btn btn--primary" data-action="do-sell-pack" data-player-id="${playerId}">Enregistrer la vente</button><button class="btn" data-player="${playerId}">Retour</button>`,
+    });
+  }
+  async function doSellPack(playerId) {
+    const k = S.packs.find((x) => x.id === document.getElementById("sp-pack").value);
+    const price = Math.round(parseFloat(String(document.getElementById("sp-price").value || "0").replace(",", ".")) * 100);
+    if (!(price >= 0)) return toast("Prix invalide.");
+    try {
+      const r = await S.api.insert("player_packs", { coach_id: S.coach.id, player_id: playerId, pack_id: k.id, name: k.name, sessions_total: k.sessions_count, sessions_used: 0,
+        price_cents: price, payment_status: document.getElementById("sp-paid").checked ? "paid" : "unpaid", expires_at: document.getElementById("sp-exp").value || null });
+      S.playerPacks.push(r);
+      toast("Pack vendu"); playerDrawer(playerId); render();
+    } catch (e) { toast(errMsg(e)); }
+  }
+  function playerPacksHtml(playerId) {
+    const list = packsOf(playerId);
+    return `<section class="card" style="padding:14px"><h2 style="font-size:15px;margin-bottom:8px">Packs de séances <button class="btn btn--sm" data-action="sell-pack" data-player-id="${playerId}">${icon("plus")} Vendre</button></h2>
+      ${list.length ? `<div class="rows">${[...list].reverse().map((pp) => `<div class="row" style="grid-template-columns:minmax(0,1fr) auto;align-items:center">
+        <span class="row__main"><span class="row__title">${esc(pp.name)} ${packExpired(pp) ? pill("cancelled", "Expiré") : packLeft(pp) <= 0 ? pill("neutral", "Terminé") : pill("confirmed", packLeft(pp) + " restante" + (packLeft(pp) > 1 ? "s" : ""))}</span>
+          <span class="row__sub">${pp.sessions_used} / ${pp.sessions_total} utilisées · ${euros(pp.price_cents)}${pp.expires_at ? " · jusqu'au " + esc(dFr(pp.expires_at)) : ""}</span></span>
+        <button class="btn btn--sm" data-action="pack-pay" data-id="${pp.id}">${pp.payment_status === "paid" ? "Payé ✓" : "Marquer payé"}</button></div>`).join("")}</div>`
+        : `<div class="empty" style="padding:8px 0">Aucun pack pour ce joueur.</div>`}</section>`;
+  }
+  // Rattacher une séance à un pack du joueur (depuis la fiche de la séance).
+  function bookingPackHtml(b) {
+    if (!b.player_id) return "";
+    const usable = packsOf(b.player_id).filter((pp) => packLeft(pp) > 0 && !packExpired(pp) || pp.id === b.player_pack_id);
+    if (!usable.length) return "";
+    return `<label class="field"><span>Décompter sur un pack</span><select id="b-pack" data-booking-pack="${b.id}" ${b.pack_counted ? "disabled" : ""}>
+      <option value="">Aucun</option>${usable.map((pp) => `<option value="${pp.id}" ${pp.id === b.player_pack_id ? "selected" : ""}>${esc(pp.name)} (${packLeft(pp)} restante${packLeft(pp) > 1 ? "s" : ""})</option>`).join("")}</select>
+      <small class="muted">${b.pack_counted ? "Séance déjà décomptée." : "Décomptée quand la séance est terminée."}</small></label>`;
+  }
+
   // ============================================================== joueurs ===
   function playerStats(p) {
     const bs = S.bookings.filter((b) => b.player_id === p.id);
@@ -883,6 +1106,25 @@
     const s = document.getElementById("pl-search");
     s.addEventListener("input", () => { S.ui.playerQuery = s.value; const pos = s.selectionStart; render(); const n = document.getElementById("pl-search"); n.focus(); n.setSelectionRange(pos, pos); });
   };
+  // Espace joueur : objectifs, fiche de progression, messagerie (côté coach).
+  const SKILLS = ["Service", "Volée", "Bandeja", "Víbora", "Smash", "Chiquita", "Bajada", "Défense (vitres)", "Lob", "Déplacements", "Tactique"];
+  const skillNow = (pid, skill) => { const l = (S.skillRatings || []).filter((r) => r.player_id === pid && r.skill === skill).sort((a, b) => a.rated_at.localeCompare(b.rated_at)); return l.length ? l[l.length - 1].level : 0; };
+  function playerSpaceHtml(pid) {
+    const goals = (S.goals || []).filter((g) => g.player_id === pid && g.status !== "cancelled");
+    const msgs = (S.pMessages || []).filter((m) => m.player_id === pid).sort((a, b) => a.created_at.localeCompare(b.created_at));
+    return `<section class="card" style="padding:14px"><h2 style="font-size:15px;margin-bottom:8px">Objectifs du joueur</h2>
+      ${goals.length ? `<div class="rows">${goals.map((g) => `<div class="row" style="grid-template-columns:minmax(0,1fr) auto;align-items:center"><span class="row__main"><span class="row__title">${esc(g.title)} ${g.status === "done" ? pill("confirmed", "Atteint") : ""}</span><span class="row__sub">${g.progress}% · ${g.created_by === "coach" ? "fixé par vous" : "fixé par le joueur"}</span></span>
+        <span class="btn-row">${g.status === "done" ? "" : `<button class="btn btn--sm" data-action="goal-status" data-id="${g.id}" data-status="done">Atteint</button>`}<button class="btn btn--sm" data-action="goal-status" data-id="${g.id}" data-status="cancelled">Retirer</button></span></div>`).join("")}</div>` : `<div class="empty" style="padding:6px 0">Aucun objectif pour l'instant.</div>`}
+      <div class="btn-row" style="margin-top:8px"><input type="text" id="pg-title" maxlength="160" placeholder="Nouvel objectif (ex. améliorer la bandeja)" style="flex:1"><button class="btn btn--sm" data-action="goal-add" data-player-id="${pid}">Ajouter</button></div></section>
+    <section class="card" style="padding:14px"><h2 style="font-size:15px;margin-bottom:4px">Fiche de progression</h2>
+      <p class="muted" style="margin:0 0 8px;font-size:13px">Note de 1 à 5. Le joueur voit la dernière note et son évolution dans son espace.</p>
+      <div class="rows">${SKILLS.map((k) => { const lv = skillNow(pid, k); return `<div class="row" style="grid-template-columns:minmax(0,1fr) auto;align-items:center"><span class="row__main"><span class="row__title">${esc(k)}</span></span>
+        <span class="btn-row">${[1, 2, 3, 4, 5].map((n) => `<button class="btn btn--sm ${lv === n ? "btn--primary" : ""}" style="min-width:34px;padding:4px 8px" data-action="skill-set" data-player-id="${pid}" data-skill="${esc(k)}" data-level="${n}" aria-label="${esc(k)} ${n} sur 5">${n}</button>`).join("")}</span></div>`; }).join("")}</div></section>
+    <section class="card" style="padding:14px"><h2 style="font-size:15px;margin-bottom:8px">Messages avec le joueur</h2>
+      ${msgs.length ? `<div class="rows" style="max-height:260px;overflow-y:auto">${msgs.slice(-20).map((m) => `<div class="row" style="grid-template-columns:minmax(0,1fr)"><span class="row__main"><span class="row__title">${m.sender === "coach" ? "Vous" : esc(fullName(playerById(pid)))}</span><span class="row__sub" style="white-space:pre-wrap">${esc(m.body)}</span><span class="row__sub">${esc(P.fmtDate(m.created_at, tz(), "short"))} ${esc(P.fmtTime(m.created_at, tz()))}</span></span></div>`).join("")}</div>` : `<div class="empty" style="padding:6px 0">Aucun message.</div>`}
+      <label class="field" style="margin-top:8px"><span>Répondre</span><textarea id="pm-body" rows="2" maxlength="2000" placeholder="Votre message au joueur (il reçoit aussi un email)"></textarea></label>
+      <button class="btn btn--sm" data-action="pmsg-send" data-player-id="${pid}" style="margin-top:6px">Envoyer</button></section>`;
+  }
   function playerDrawer(id, confirmDelete) {
     const p = id ? playerById(id) : { first_name: "", last_name: "", email: "", phone: "", level: "", notes: "" };
     if (!p) return;
@@ -903,6 +1145,9 @@
           <label class="field"><span>Niveau</span><input type="text" id="pl-level" value="${esc(p.level || "")}" placeholder="P100"></label>
           <label class="field full"><span>Notes privées</span><textarea id="pl-notes" placeholder="Points forts, axes de travail, objectifs…">${esc(p.notes || "")}</textarea></label>
         </div>
+        ${id ? `<label class="switch"><span><b>Ne pas envoyer les annonces de stages</b><small>Cochez si le joueur ne souhaite plus recevoir ces emails.</small></span><input type="checkbox" id="pl-optout" ${p.marketing_optout ? "checked" : ""}></label>` : ""}
+        ${id ? playerPacksHtml(id) : ""}
+        ${id ? playerSpaceHtml(id) : ""}
         ${st && st.all.length ? `<div><div class="day-head">Historique</div><div class="rows">${[...st.all].reverse().slice(0, 30).map((b) => bookingRow(b, { showDate: true })).join("")}</div></div>` : ""}`,
       foot: `<button class="btn btn--primary" data-action="save-player" data-id="${id || ""}">Enregistrer</button>
         ${id ? `<button class="btn" data-action="new-booking" data-player-id="${id}">Réserver une séance</button><button class="btn btn--danger" data-action="ask-delete-player" data-id="${id}">Supprimer</button>` : ""}`,
@@ -914,6 +1159,7 @@
     const email = v("pl-email").toLowerCase();
     if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast("Email invalide.");
     const row = { first_name: v("pl-first"), last_name: v("pl-last"), phone: v("pl-phone") || null, email: email || null, level: v("pl-level") || null, notes: v("pl-notes") || null };
+    const oo = document.getElementById("pl-optout"); if (oo) row.marketing_optout = oo.checked;
     try {
       if (id) { const r = await S.api.update("players", id, row); S.players[S.players.findIndex((p) => p.id === id)] = r; S.bookings = S.bookings.map((b) => b.player_id === id ? { ...b, player: r } : b); }
       else S.players.push(await S.api.insert("players", { ...row, coach_id: S.coach.id }));
@@ -1345,20 +1591,15 @@
             ${pill(c.status === "live" ? "confirmed" : "pending", c.status === "live" ? "En ligne" : c.status === "draft" ? "Brouillon" : "Suspendu")}</div>
             <label class="switch" style="margin-top:14px"><span><b>Apparaître dans l'annuaire PCW</b><small>Les élèves vous trouvent par ville ou par club dans l'annuaire des coachs PCW, avec un lien direct vers votre réservation.${c.status !== "live" ? " Visible dès la mise en ligne de votre site." : ""}</small></span>
               <input type="checkbox" id="s-directory" ${c.directory_listed !== false ? "checked" : ""}></label></section>
+          <section class="card"><h2>Paiement en ligne des séances <span class="pill pill--neutral">Prochainement disponible</span></h2>
+            <p class="muted" style="margin:0;font-size:14px">Vos joueurs pourront bientôt régler leurs séances, stages et packs par carte directement sur votre site. Rien à faire de votre côté pour l'instant : vous continuez d'encaisser vous-même et de marquer « payé ».</p></section>
+          <section class="card" id="push-card" data-scope="coach"></section>
           <section class="card" id="pcw-avis"><h2>Votre avis sur PCW Padel Coach</h2><p class="muted" style="margin:0">Chargement…</p></section>
-          ${S.isAdmin ? `<section class="card" id="pcw-avis-admin" style="border-color:var(--accent)"><h2>Avis des coachs <small>visible par l'équipe PCW seulement</small></h2><p class="muted" style="margin:0">Chargement…</p></section>` : ""}
           ${S.isAdmin ? `<section class="card" style="border-color:var(--accent)"><h2>Plateforme PCW <small>visible par l'équipe PCW seulement</small></h2>
             <div class="switch"><span><b>Statut de ce site</b><small>${c.status === "live" ? "Visible et ouvert aux réservations" : "Invisible du public tant qu'il n'est pas en ligne"}</small></span>
               ${c.status === "live" ? `<button type="button" class="btn btn--sm" data-action="set-status" data-status="draft">Repasser en brouillon</button>`
                 : `<button type="button" class="btn btn--sm btn--primary" data-action="set-status" data-status="live">Mettre en ligne</button>`}</div>
-            <form id="new-coach-form" class="form-grid" style="margin-top:12px">
-              <p class="full muted" style="margin:0;font-size:13px">Nouveau client : son site est créé en brouillon à partir du modèle (textes, couleurs, prestations, règles), puis il reçoit un email pour choisir son mot de passe.</p>
-              <label class="field"><span>Nom du coach</span><input type="text" id="nc-name" maxlength="60" placeholder="Emma Roux"></label>
-              <label class="field"><span>Ville</span><input type="text" id="nc-city" maxlength="60" placeholder="Albi"></label>
-              <label class="field"><span>Adresse du site</span><input type="text" id="nc-slug" maxlength="40" placeholder="emma-roux" autocapitalize="off"></label>
-              <label class="field"><span>Email du coach</span><input type="email" id="nc-email" placeholder="emma@exemple.fr"></label>
-              <div class="full"><button type="submit" class="btn btn--dark">Créer le coach</button></div>
-            </form></section>` : ""}
+            <p class="muted" style="margin:12px 0 0;font-size:13px">Créer un coach, suivre les abonnements et valider les avis : <a href="#pcw">Console PCW</a>.</p></section>` : ""}
           <section class="card"><h2>Compte</h2><p class="muted" style="margin:0 0 10px">Connecté avec ${esc(S.user.email || "")}</p>
             <div class="btn-row">${S.api.mode !== "demo" ? `<button class="btn" data-action="change-password">Changer de mot de passe</button>` : `<button class="btn" data-action="reset-demo">Réinitialiser la démo</button>`}
             <button class="btn btn--danger" data-action="sign-out">Se déconnecter</button></div></section>
@@ -1368,7 +1609,7 @@
   AFTER.reglages = (page) => {
     bindCalForm(page);
     loadTestimonial(page);
-    if (S.isAdmin) loadTestimonialsAdmin(page);
+    pushInit();
     if (S.ui.scrollGoogle) { S.ui.scrollGoogle = false; const g = page.querySelector("#google"); if (g) g.scrollIntoView({ block: "start" }); }
     page.querySelector("#rules-form").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -1379,28 +1620,6 @@
       try { Object.assign(S.coach, await S.api.updateCoach(S.coach.id, patch)); toast("Règles enregistrées"); }
       catch (err) { toast(errMsg(err)); }
     });
-    const nc = page.querySelector("#new-coach-form");
-    if (nc) {
-      const name = nc.querySelector("#nc-name"), slug = nc.querySelector("#nc-slug");
-      name.addEventListener("input", () => {
-        if (slug.dataset.touched) return;
-        slug.value = name.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
-      });
-      slug.addEventListener("input", () => { slug.dataset.touched = "1"; });
-      nc.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const btn = nc.querySelector("button[type=submit]");
-        btn.disabled = true; btn.textContent = "Création…";
-        try {
-          const r = await S.api.createCoach({ display_name: name.value.trim(), city: nc.querySelector("#nc-city").value.trim(),
-            slug: slug.value.trim(), email: nc.querySelector("#nc-email").value.trim() });
-          S.coaches = await S.api.myCoaches();
-          toast(r.invited ? "Coach créé, invitation envoyée" : "Coach créé en brouillon");
-          await selectCoach(r.coach_id);
-          location.hash = "mon-site";
-        } catch (err) { toast(errMsg(err)); btn.disabled = false; btn.textContent = "Créer le coach"; }
-      });
-    }
     const dir = page.querySelector("#s-directory");
     if (dir) dir.addEventListener("change", async () => {
       try {
@@ -1415,6 +1634,726 @@
       try { Object.assign(S.coach, await S.api.updateCoach(S.coach.id, { notify_email: v || null })); toast("Email enregistré"); }
       catch (err) { toast(errMsg(err)); }
     });
+  };
+
+  // ======================================================= console PCW ===
+  // Page réservée aux administrateurs de la plateforme : tableau de bord, coachs, abonnements, avis.
+  const PLAN = {
+    pending: ["pending", "À démarrer"], active: ["confirmed", "Actif"], overdue: ["cancelled", "En retard"],
+    cancelling: ["pending", "Résiliation demandée"], ended: ["neutral", "Terminé"],
+  };
+  const ST_LABEL = { live: ["confirmed", "En ligne"], draft: ["pending", "Brouillon"], suspended: ["cancelled", "Suspendu"] };
+  const eur0 = (c) => ((c || 0) / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  const dFr = (d) => d ? new Date(String(d).length === 10 ? d + "T12:00:00" : d).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "—";
+  const ymdToday = () => new Date().toISOString().slice(0, 10);
+  const addMonthsYmd = (ymd, n) => { const d = new Date(ymd + "T12:00:00"); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
+  const coachSiteUrl = (c) => c.custom_domain ? `https://${c.custom_domain}/` : "";
+  const PCW_TABS = [["overview", "Vue d'ensemble"], ["coaches", "Coachs"], ["billing", "Abonnements"], ["reviews", "Avis des coachs"]];
+
+  // ================================================================ mes factures (coach) ===
+  function viewInvoices() {
+    return `<div class="page__head"><div><h1>Mes factures</h1><p>Vos factures d'abonnement PCW Padel Coach.</p></div></div><div id="inv-box"><p class="muted">Chargement…</p></div>`;
+  }
+  function invoiceCardsHtml(data) {
+    const inv = data.invoices || [], pay = data.payment || {};
+    if (!inv.length) return `<section class="card"><div class="empty">Aucune facture pour le moment. Vos factures PCW apparaîtront ici dès qu'elles seront émises.</div></section>`;
+    const due = inv.filter((i) => i.status === "issued");
+    const total = due.reduce((n, i) => n + i.total_cents, 0);
+    const kindLabel = { setup: "Mise en place du site", monthly: "Abonnement mensuel", other: "Facture" };
+    const summary = due.length
+      ? `<div class="inv-summary inv-summary--due"><b>${due.length} facture${due.length > 1 ? "s" : ""} à régler</b><span>${eur0(total)} au total</span></div>`
+      : `<div class="inv-summary inv-summary--ok"><b>Tout est réglé</b><span>Merci !</span></div>`;
+    const card = (i) => {
+      const url = payUrlOf(i, pay);
+      const open = i.status === "issued";
+      return `<section class="card inv-card inv-card--${i.status}">
+        <div class="inv-card__top"><div><b>${esc(i.number)}</b><small>${esc(kindLabel[i.kind] || "Facture")} · émise le ${esc(dFr(i.issued_on))}${open ? ` · échéance ${esc(dFr(i.due_on))}` : ""}${i.status === "paid" && i.paid_on ? ` · payée le ${esc(dFr(i.paid_on))}` : ""}</small></div>
+          <div class="inv-amount">${eur0(i.total_cents)}</div></div>
+        <div class="btn-row">${pill(...INV_ST[i.status])}
+          <button type="button" class="btn btn--sm" data-action="inv-coach-open" data-id="${esc(i.id)}">Voir la facture</button>
+          ${open && url ? `<a class="btn btn--sm btn--primary" href="${esc(url)}" target="_blank" rel="noopener">Payer par carte</a>` : ""}</div>
+        ${open ? `<p class="inv-note">Vous pouvez aussi régler cette facture <b>par virement bancaire</b> si vous le souhaitez${pay.iban ? ` :<br>IBAN <b>${esc(pay.iban)}</b>${pay.bic ? ` · BIC <b>${esc(pay.bic)}</b>` : ""}${pay.bank_name ? ` · ${esc(pay.bank_name)}` : ""}<br>Référence à indiquer : <b>${esc(i.number)}</b>${pay.payment_note ? ` · ${esc(pay.payment_note)}` : ""}` : ". Les coordonnées bancaires figurent sur la facture."}</p>` : ""}
+      </section>`;
+    };
+    return summary + inv.map(card).join("");
+  }
+  AFTER.factures = async (page) => {
+    const box = page.querySelector("#inv-box");
+    try {
+      S.invData = await S.api.coachInvoices(S.coach.id);
+      box.innerHTML = invoiceCardsHtml(S.invData);
+    } catch (e) { box.innerHTML = `<div class="alert alert--err">${esc(errMsg(e))}</div>`; }
+  };
+
+  // ================================================================ compteurs de notifications par onglet ===
+  // Chaque événement (réservation, annulation, avis, message, facture...) est compté pour l'onglet concerné
+  // tant que l'onglet n'a pas été ouvert. Les compteurs viennent du serveur (nav_counts) : ils sont donc
+  // les mêmes sur tous les appareils, et repassent à zéro à l'ouverture de l'onglet (nav_mark_seen).
+  const NAV = { counts: {}, admin: {}, scope: null, last: 0 };
+  const navSum = (o) => Object.values(o).reduce((a, b) => a + (Number(b) || 0), 0);
+  function navCountOf(key) {
+    if (key === "console") return navSum(NAV.admin);
+    if (key === "more") return (NAV.counts.avis || 0) + (NAV.counts.factures || 0) + (NAV.counts.stages || 0);
+    if (inConsole()) {
+      const d = S.pcw && S.pcw.dash;
+      return Math.max(NAV.admin[key] || 0, key === "reviews" && d ? d.pending_testimonials || 0 : 0);
+    }
+    const pending = key === "reservations" ? (S.bookings || []).filter((b) => b.status === "pending" && !isPast(b)).length : 0;
+    const unread = key === "messages" ? (S.messages || []).filter((m) => m.status === "new").length : 0;
+    return Math.max(NAV.counts[key] || 0, pending, unread);
+  }
+  function paintNav() {
+    document.querySelectorAll("[data-navkey]").forEach((el) => {
+      const n = navCountOf(el.dataset.navkey);
+      let b = el.querySelector(":scope > .badge");
+      if (n) {
+        if (!b) { b = document.createElement("span"); b.className = "badge"; el.appendChild(b); }
+        b.textContent = n > 99 ? "99+" : String(n);
+      } else if (b) b.remove();
+      el.classList.toggle("has-notif", n > 0);
+    });
+    try {
+      const total = inConsole() ? navSum(NAV.admin) : navSum(NAV.counts);
+      if (navigator.setAppBadge) { total ? navigator.setAppBadge(total) : navigator.clearAppBadge(); }
+    } catch { /* facultatif */ }
+  }
+  async function markCurrentSeen() {
+    if (!S.user) return;
+    const cons = inConsole();
+    const tab = cons ? (S.ui.pcwTab || "overview") : currentView();
+    const src = cons ? NAV.admin : NAV.counts;
+    if (!(src[tab] > 0)) return;
+    src[tab] = 0;
+    try { await S.api.navMarkSeen(cons ? null : S.coach && S.coach.id, tab); } catch { /* sera recompté */ }
+  }
+  async function refreshNav(force) {
+    if (!S.user || S.recovery) return;
+    const now = Date.now();
+    if (!force && now - NAV.last < 15000) return;
+    NAV.last = now;
+    try {
+      if (inConsole()) NAV.admin = (await S.api.navCounts(null)) || {};
+      else {
+        if (S.coach) NAV.counts = (await S.api.navCounts(S.coach.id)) || {};
+        if (S.isAdmin && S.api.mode !== "demo") NAV.admin = (await S.api.navCounts(null)) || {};
+      }
+    } catch { return; }
+    await markCurrentSeen();
+    paintNav();
+  }
+  function navTick() {
+    if (!S.user) { NAV.counts = {}; NAV.admin = {}; NAV.scope = null; return; }
+    const scope = inConsole() ? "admin" : S.coach && S.coach.id;
+    if (scope !== NAV.scope) { NAV.scope = scope; if (!inConsole()) NAV.counts = {}; NAV.last = 0; }
+    markCurrentSeen().then(paintNav);
+    refreshNav(false);
+  }
+  setInterval(() => { if (document.visibilityState === "visible") refreshNav(true); }, 45000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") refreshNav(true); });
+  if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", (e) => { if (e.data && e.data.type === "refresh-nav") refreshNav(true); });
+
+  // ================================================================ notifications push ===
+  // Un appareil (navigateur ou application installée) s'abonne ; le serveur lui envoie une notification
+  // à chaque réservation, annulation, avis ou message (fonction push-worker). Les choix par type sont
+  // enregistrés par appareil.
+  const PUSH_KINDS = {
+    coach: [["booking_new", "Nouvelle réservation"], ["booking_pending", "Réservation à valider"], ["booking_cancelled", "Annulation par l'élève"],
+      ["review_new", "Nouvel avis d'un élève"], ["stage_registration", "Inscription à un stage"], ["pack_order", "Pack de séances commandé"], ["player_message", "Message d'un joueur"], ["message_new", "Nouveau message du site"], ["invoice_new", "Nouvelle facture PCW"]],
+    admin: [["admin_coach_live", "Un coach passe en ligne"], ["admin_review_pending", "Avis de coach à valider"], ["admin_invoice_due", "Facture échue"]],
+  };
+  const PUSH = { state: "loading", endpoint: null, prefs: {} };
+  const pushIsIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const pushStandalone = () => window.navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  const pushSupported = () => S.api.mode !== "demo" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  function pushLabel() {
+    const ua = navigator.userAgent;
+    const os = /iphone/i.test(ua) ? "iPhone" : /ipad/i.test(ua) ? "iPad" : /android/i.test(ua) ? "Android" : /mac/i.test(ua) ? "Mac" : /windows/i.test(ua) ? "Windows" : "Appareil";
+    const br = /edg\//i.test(ua) ? "Edge" : /firefox/i.test(ua) ? "Firefox" : /chrome|crios/i.test(ua) ? "Chrome" : /safari/i.test(ua) ? "Safari" : "navigateur";
+    return `${os} · ${br}`;
+  }
+  const b64ToBytes = (b64) => {
+    const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+    const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+    return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  };
+  async function pushRegistration() {
+    return navigator.serviceWorker.ready;
+  }
+  async function pushRefresh() {
+    if (S.api.mode === "demo") { PUSH.state = "demo"; return; }
+    if (!pushSupported()) { PUSH.state = pushIsIos() && !pushStandalone() ? "ios-install" : "unsupported"; return; }
+    if (pushIsIos() && !pushStandalone()) { PUSH.state = "ios-install"; return; }
+    if (Notification.permission === "denied") { PUSH.state = "denied"; return; }
+    try {
+      const sub = await (await pushRegistration()).pushManager.getSubscription();
+      if (!sub) { PUSH.state = "off"; PUSH.endpoint = null; PUSH.prefs = {}; return; }
+      const j = sub.toJSON();
+      PUSH.endpoint = sub.endpoint;
+      // Resynchronise l'appareil côté serveur (compte changé, appareil purgé...).
+      await S.api.pushSubscribe({ endpoint: sub.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }, pushLabel());
+      PUSH.prefs = (await S.api.pushGetPrefs(sub.endpoint)) || {};
+      PUSH.state = "on";
+    } catch { PUSH.state = "off"; }
+  }
+  function pushCardInner(scope) {
+    const kinds = PUSH_KINDS[scope];
+    const title = scope === "admin" ? "Notifications PCW" : "Notifications";
+    const intro = scope === "admin"
+      ? "Soyez prévenu quand un coach passe en ligne, qu'un avis de coach attend votre validation ou qu'une facture arrive à échéance."
+      : "Soyez prévenu tout de suite d'une nouvelle réservation, d'une annulation, d'un avis ou d'un message, sur votre téléphone comme sur votre ordinateur.";
+    let body;
+    if (PUSH.state === "loading") body = `<p class="muted" style="margin:0">Chargement…</p>`;
+    else if (PUSH.state === "demo") body = `<p class="muted" style="margin:0">Indisponible dans la démonstration. Les notifications fonctionnent dans votre vrai espace.</p>`;
+    else if (PUSH.state === "unsupported") body = `<p class="muted" style="margin:0">Ce navigateur ne gère pas les notifications. Essayez Chrome, Edge, Firefox ou Safari à jour.</p>`;
+    else if (PUSH.state === "ios-install") body = `<p style="margin:0 0 6px"><b>Sur iPhone et iPad, une étape de plus.</b></p>
+      <ol class="muted" style="margin:0;padding-left:18px;line-height:1.6"><li>Ouvrez cette page dans <b>Safari</b>.</li><li>Touchez le bouton <b>Partager</b> (carré avec une flèche).</li><li>Touchez <b>Sur l'écran d'accueil</b>, puis <b>Ajouter</b>.</li><li>Ouvrez l'application depuis votre écran d'accueil et revenez ici pour activer les notifications.</li></ol>`;
+    else if (PUSH.state === "denied") body = `<p class="muted" style="margin:0">Les notifications sont bloquées pour ce site. Autorisez-les dans les réglages de votre navigateur (cadenas à gauche de l'adresse, puis Notifications), puis rechargez la page.</p>`;
+    else if (PUSH.state === "off") body = `<div class="btn-row"><button type="button" class="btn btn--primary" data-action="push-enable">Activer sur cet appareil</button></div>`;
+    else body = `<p style="margin:0 0 10px">${pill("confirmed", "Activées sur cet appareil")}</p>
+      ${kinds.map(([k, label]) => `<label class="switch"><span><b>${esc(label)}</b></span><input type="checkbox" data-push-kind="${k}" ${PUSH.prefs[k] === false ? "" : "checked"}></label>`).join("")}
+      <div class="btn-row" style="margin-top:12px"><button type="button" class="btn btn--sm" data-action="push-test">Envoyer un test</button>
+      <button type="button" class="btn btn--sm btn--danger" data-action="push-disable">Désactiver sur cet appareil</button></div>`;
+    return `<h2>${title}</h2><p class="muted" style="margin:0 0 12px">${intro}</p>${body}`;
+  }
+  async function pushRender() {
+    const card = document.getElementById("push-card");
+    if (!card) return;
+    const scope = card.dataset.scope === "admin" ? "admin" : "coach";
+    card.innerHTML = pushCardInner(scope);
+    card.querySelectorAll("[data-push-kind]").forEach((cb) => cb.addEventListener("change", async () => {
+      PUSH.prefs[cb.dataset.pushKind] = cb.checked;
+      try { await S.api.pushSetPref(PUSH.endpoint, cb.dataset.pushKind, cb.checked); } catch (e) { toast(errMsg(e)); }
+    }));
+  }
+  async function pushInit() {
+    const card = document.getElementById("push-card");
+    if (!card) return;
+    PUSH.state = "loading"; pushRender();
+    await pushRefresh();
+    pushRender();
+  }
+  const PUSH_ACTIONS = {
+    "push-enable": async () => {
+      try {
+        const perm = await Notification.requestPermission();
+        if (perm !== "granted") { PUSH.state = perm === "denied" ? "denied" : "off"; return pushRender(); }
+        const key = await S.api.pushPublicKey();
+        if (!key) throw new Error("Notifications indisponibles pour le moment.");
+        const reg = await pushRegistration();
+        const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(key) });
+        await pushRefresh();
+        toast("Notifications activées");
+      } catch (e) { toast("Activation impossible : " + errMsg(e)); }
+      pushRender();
+    },
+    "push-disable": async () => {
+      try {
+        const sub = await (await pushRegistration()).pushManager.getSubscription();
+        if (sub) { const ep = sub.endpoint; await sub.unsubscribe(); await S.api.pushUnsubscribe(ep); }
+        PUSH.state = "off"; PUSH.endpoint = null; PUSH.prefs = {};
+        toast("Notifications désactivées sur cet appareil");
+      } catch (e) { toast(errMsg(e)); }
+      pushRender();
+    },
+    "push-test": async (el) => {
+      el.disabled = true;
+      try { const r = await S.api.pushTest(); toast(r && r.sent ? "Test envoyé : regardez vos notifications" : "Aucune notification envoyée"); }
+      catch (e) { toast(errMsg(e)); }
+      el.disabled = false;
+    },
+  };
+  // Un clic sur une notification rouvre le back-office à la bonne page.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (e) => {
+      if (e.data && e.data.type === "goto") {
+        try { const u = new URL(e.data.url); if (u.origin === location.origin) location.hash = u.hash || "#dashboard"; } catch { /* ignoré */ }
+      }
+    });
+  }
+
+  const PCW_TITLES = { overview: ["Vue d'ensemble", "Tous vos coachs en un coup d'œil."], coaches: ["Coachs", "Créer un coach, ouvrir sa fiche, entrer dans son espace."],
+    billing: ["Abonnements et factures", "Suivi des abonnements, factures et paiements."], reviews: ["Avis des coachs", "Avis sur PCW Padel Coach à valider avant publication."] };
+  function viewPcw() {
+    const [t, sub] = PCW_TITLES[S.ui.pcwTab || "overview"];
+    return `<div class="page__head"><div><h1>${t}</h1><p>${sub}</p></div></div><div id="pcw-body"><p class="muted">Chargement…</p></div>`;
+  }
+  // Espace réservé à l'équipe PCW : aucune donnée de coach n'est chargée tant qu'on n'en ouvre pas un.
+  function renderConsole() {
+    const tab = S.ui.pcwTab || "overview";
+    const d = S.pcw && S.pcw.dash;
+    const badgeFor = (k) => { const n = navCountOf(k); return n ? `<span class="badge">${n > 99 ? "99+" : n}</span>` : ""; };
+    const hot = (k) => (navCountOf(k) ? " has-notif" : "");
+    const items = [["overview", "Vue d'ensemble", "home"], ["coaches", "Coachs", "users"], ["billing", "Abonnements", "list"], ["reviews", "Avis des coachs", "star"]];
+    const link = ([k, l, ic]) => `<a class="navlink${hot(k)}" href="#pcw" data-navkey="${k}" data-action="pcw-tab" data-tab="${k}" ${tab === k ? 'aria-current="page"' : ""}>${icon(ic)}<span>${l}</span>${badgeFor(k)}</a>`;
+    const tabBtn = ([k, l, ic]) => `<a class="tab${hot(k)}" href="#pcw" data-navkey="${k}" data-action="pcw-tab" data-tab="${k}" ${tab === k ? 'aria-current="page"' : ""}>${icon(ic)}<span>${k === "overview" ? "Ensemble" : k === "reviews" ? "Avis" : k === "billing" ? "Factures" : l}</span>${badgeFor(k)}</a>`;
+    app.innerHTML = `<div class="shell shell--console">
+      <aside class="side">
+        <div class="side__brand"><span class="dot"></span><span>PCW PADEL COACH</span></div>
+        <nav aria-label="Menu"><span class="nav-group">Console PCW</span>${items.map(link).join("")}
+          <span class="nav-group">Entrer dans le site d'un coach</span>
+          <select class="coach-switch" id="open-coach" aria-label="Ouvrir le site d'un coach"><option value="">Choisir un coach…</option>${(S.coaches || []).map((c) =>
+            `<option value="${c.id}">${esc(c.display_name)}</option>`).join("")}</select></nav>
+        <div class="side__foot">
+          <a href="https://pcwpadel.fr/" target="_blank" rel="noopener">Page de vente pcwpadel.fr ↗</a>
+          <span class="muted" style="padding:6px 12px;font-size:12px;opacity:.7">${esc((S.user && S.user.email) || "")}</span>
+          <button type="button" data-action="sign-out">Se déconnecter</button>
+        </div>
+      </aside>
+      <main class="main"><div class="page" id="page"></div></main>
+      <nav class="tabbar" aria-label="Menu">${items.map(tabBtn).join("")}<button type="button" class="tab" data-action="pcw-more">${icon("more")}<span>Plus</span></button></nav>
+    </div>`;
+    const page = document.getElementById("page");
+    page.innerHTML = viewPcw();
+    AFTER.pcw(page);
+    const sw = document.getElementById("open-coach");
+    if (sw) sw.addEventListener("change", async () => { if (sw.value) await enterCoach(sw.value); });
+  }
+  async function enterCoach(id) {
+    closeDrawer();
+    history.pushState(null, "", "#dashboard");
+    await selectCoach(id);
+  }
+  AFTER.pcw = async (page) => {
+    if (!S.pcw) {
+      try { await loadPcw(); } catch (e) { const b = page.querySelector("#pcw-body"); if (b) b.innerHTML = `<div class="alert alert--err">${esc(errMsg(e))}</div>`; return; }
+    }
+    renderPcwBody();
+  };
+  async function loadPcw() {
+    const [dash, coaches, invoices, settings] = await Promise.all([S.api.adminDashboard(), S.api.adminCoaches(), S.api.adminInvoices(), S.api.adminGetSettings()]);
+    S.pcw = { dash, coaches, invoices, settings };
+  }
+  async function refreshPcw() { try { await loadPcw(); } catch (e) { toast(errMsg(e)); } renderPcwBody(); }
+  function renderPcwBody() {
+    const box = document.getElementById("pcw-body");
+    if (!box || !S.pcw) return;
+    const t = S.ui.pcwTab || "overview";
+    box.innerHTML = t === "coaches" ? pcwCoachesHtml() : t === "billing" ? pcwBillingHtml() : t === "reviews"
+      ? `<section class="card" id="pcw-avis-admin"><h2>Avis des coachs</h2><p class="muted" style="margin:0">Chargement…</p></section>` : pcwOverviewHtml();
+    if (t === "reviews") loadTestimonialsAdmin(document);
+    if (t === "coaches") bindNewCoach(box);
+    if (t === "overview") {
+      box.insertAdjacentHTML("beforeend", `<section class="card" id="push-card" data-scope="admin" style="margin-top:14px"></section>`);
+      pushInit();
+    }
+  }
+
+  function pcwOverviewHtml() {
+    const d = S.pcw.dash, c = d.coaches, b = d.bookings;
+    const diff = b.month - b.last_month;
+    const kpi = (label, value, sub, extra = "") => `<div class="kpi ${extra}"><span class="kpi__label">${label}</span><span class="kpi__value">${value}</span><span class="kpi__sub">${sub}</span></div>`;
+    const weeks = d.weekly_bookings || [];
+    const max = Math.max(1, ...weeks.map((w) => w.count));
+    const bars = weeks.length ? `<div style="display:flex;align-items:flex-end;gap:6px;height:90px">${weeks.map((w) =>
+      `<div title="${esc(dFr(w.week))} : ${w.count}" style="flex:1;display:grid;gap:4px;align-items:end;justify-items:center;height:100%"><span class="muted num" style="font-size:11px">${w.count}</span><span style="display:block;width:100%;height:${Math.max(3, Math.round((w.count / max) * 60))}px;background:var(--ball);border-radius:4px"></span></div>`).join("")}</div>
+      <p class="muted" style="margin:6px 0 0;font-size:12px">Réservations par semaine, 8 dernières semaines.</p>` : "";
+    const list = (items, row, empty) => items.length ? `<div class="rows">${items.map(row).join("")}</div>` : `<p class="muted" style="margin:0">${empty}</p>`;
+    const open = (id, title, sub, end) => `<button type="button" class="row row--wrap" data-action="pcw-coach" data-id="${id}">
+      <span class="row__main"><span class="row__title">${esc(title)}</span><span class="row__sub" style="white-space:normal">${sub}</span></span><span class="row__end">${end || ""}</span></button>`;
+    return `<div class="kpis">
+        ${kpi("Coachs en ligne", `${c.live}<small style="font-size:14px;font-weight:600"> / ${c.total}</small>`, `${c.draft} brouillon${c.draft > 1 ? "s" : ""} · ${c.suspended} suspendu${c.suspended > 1 ? "s" : ""}`)}
+        ${kpi("Réservations ce mois", b.month, `${diff >= 0 ? "+" : ""}${diff} vs mois dernier · ${b.upcoming} à venir`)}
+        ${kpi("Revenu mensuel", eur0(d.mrr_cents), "Abonnements actifs")}
+        ${kpi("Impayés", d.overdue.count ? eur0(d.overdue.cents) : "0", d.overdue.count ? `${d.overdue.count} abonnement${d.overdue.count > 1 ? "s" : ""} en retard` : "Rien en retard", d.overdue.count ? "kpi--alert" : "")}
+      </div>
+      <div class="kpis">
+        ${kpi("Mises en ligne offertes", `${d.waived_setups}<small style="font-size:14px;font-weight:600"> / 10</small>`, "Offre des 10 premiers coachs")}
+        <button type="button" class="kpi ${d.pending_testimonials ? "kpi--alert" : ""}" data-action="pcw-tab" data-tab="reviews"><span class="kpi__label">Avis de coachs</span><span class="kpi__value">${d.pending_testimonials}</span><span class="kpi__sub">à valider</span></button>
+        ${kpi("Avis signalés", d.reported_reviews, "Avis d'élèves signalés par les coachs", d.reported_reviews ? "kpi--alert" : "")}
+      </div>
+      <div class="grid grid--2">
+        <section class="card"><h2>À surveiller</h2>${list(d.attention, (a) => open(a.coach_id, a.name, esc(a.issues.join(" · ")), pill(...ST_LABEL[a.status] || ST_LABEL.draft)), "Rien à signaler.")}</section>
+        <div class="grid">
+          <section class="card"><h2>Activité</h2>${bars || `<p class="muted" style="margin:0">Pas encore de données.</p>`}</section>
+          <section class="card"><h2>Échéances à 7 jours</h2>${list(d.due_soon, (x) => open(x.coach_id, x.name, `Payé jusqu'au ${dFr(x.paid_until)}`, pill(...(PLAN[x.plan_status] || PLAN.active))), "Aucune échéance proche.")}</section>
+          <section class="card"><h2>Engagements qui se terminent <small>60 jours</small></h2>${list(d.commitment_ending, (x) => open(x.coach_id, x.name, `Fin d'engagement le ${dFr(x.ends_on)}`, ""), "Aucun engagement proche de son terme.")}</section>
+        </div>
+      </div>`;
+  }
+
+  function pcwCoachesHtml() {
+    const list = S.pcw.coaches;
+    const row = (c) => {
+      const bl = c.billing || {};
+      const flags = [c.invite_pending ? "invitation non acceptée" : "", !c.services_count ? "sans prestation" : "", !c.locations_count ? "sans lieu" : "", !c.rules_count ? "sans horaire" : ""].filter(Boolean);
+      return `<button type="button" class="row row--wrap" data-action="pcw-coach" data-id="${c.id}">
+        <span class="row__main"><span class="row__title">${esc(c.display_name)}${c.city ? ` <span class="muted" style="font-weight:500">· ${esc(c.city)}</span>` : ""}</span>
+          <span class="row__sub">${esc(c.custom_domain || c.slug)} · ${c.bookings_30d} réservation${c.bookings_30d > 1 ? "s" : ""} (30 j)${flags.length ? " · " + esc(flags.join(", ")) : ""}</span></span>
+        <span class="row__end">${pill(...ST_LABEL[c.status] || ST_LABEL.draft)}${pill(...(PLAN[bl.plan_status] || PLAN.pending))}</span></button>`;
+    };
+    return `<div class="toolbar"><button type="button" class="btn btn--primary" data-action="pcw-new">+ Nouveau coach</button></div>
+      <section class="card" id="pcw-new" ${S.ui.pcwNew ? "" : "hidden"}><h2>Nouveau coach</h2>${newCoachFormHtml()}</section>
+      <section class="card card--flush">${list.length ? `<div class="rows">${list.map(row).join("")}</div>` : `<div class="empty">Aucun coach.</div>`}</section>`;
+  }
+
+  function newCoachFormHtml() {
+    return `<form id="new-coach-form" class="form-grid">
+      <p class="full muted" style="margin:0;font-size:13px">Le site est créé en brouillon à partir du modèle (textes, couleurs, prestations, règles), puis le coach reçoit un email pour choisir son mot de passe. Pensez à créer l'adresse DNS et le dépôt avant (voir la procédure de mise en ligne).</p>
+      <label class="field"><span>Nom du coach</span><input type="text" id="nc-name" maxlength="60" placeholder="Emma Roux"></label>
+      <label class="field"><span>Ville</span><input type="text" id="nc-city" maxlength="60" placeholder="Albi"></label>
+      <label class="field"><span>Adresse du site</span><input type="text" id="nc-slug" maxlength="40" placeholder="emma-roux" autocapitalize="off"></label>
+      <label class="field"><span>Email du coach</span><input type="email" id="nc-email" placeholder="emma@exemple.fr"></label>
+      <label class="field"><span>Domaine du site (facultatif)</span><input type="text" id="nc-domain" maxlength="100" placeholder="emma-roux.padelcoachs.fr" autocapitalize="off"></label>
+      <div class="full"><button type="submit" class="btn btn--dark">Créer le coach</button></div></form>`;
+  }
+  function bindNewCoach(root) {
+    const nc = root.querySelector("#new-coach-form");
+    if (!nc) return;
+    const name = nc.querySelector("#nc-name"), slug = nc.querySelector("#nc-slug"), dom = nc.querySelector("#nc-domain");
+    name.addEventListener("input", () => {
+      if (slug.dataset.touched) return;
+      slug.value = name.value.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40);
+      if (!dom.dataset.touched) dom.value = slug.value ? `${slug.value}.padelcoachs.fr` : "";
+    });
+    slug.addEventListener("input", () => { slug.dataset.touched = "1"; if (!dom.dataset.touched) dom.value = slug.value ? `${slug.value}.padelcoachs.fr` : ""; });
+    dom.addEventListener("input", () => { dom.dataset.touched = "1"; });
+    nc.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = nc.querySelector("button[type=submit]");
+      btn.disabled = true; btn.textContent = "Création…";
+      try {
+        const r = await S.api.createCoach({ display_name: name.value.trim(), city: nc.querySelector("#nc-city").value.trim(),
+          slug: slug.value.trim(), email: nc.querySelector("#nc-email").value.trim(), domain: dom.value.trim() });
+        S.coaches = await S.api.myCoaches();
+        toast(r.invited ? "Coach créé, invitation envoyée" : "Coach créé en brouillon");
+        S.ui.pcwNew = false;
+        await refreshPcw();
+        pcwCoachDrawer(r.coach_id);
+      } catch (err) { toast(errMsg(err)); btn.disabled = false; btn.textContent = "Créer le coach"; }
+    });
+  }
+
+  function pcwBillingHtml() {
+    const list = S.pcw.coaches.filter((c) => c.slug !== "demo");
+    const d = S.pcw.dash;
+    const row = (c) => {
+      const bl = c.billing || {};
+      const late = bl.paid_until && bl.paid_until < ymdToday() && ["active", "overdue"].includes(bl.plan_status);
+      const setup = bl.setup_waived ? "mise en ligne offerte" : bl.setup_paid_at ? `mise en ligne payée le ${dFr(bl.setup_paid_at)}` : `mise en ligne ${eur0(bl.setup_fee_cents)} à régler`;
+      return `<button type="button" class="row row--wrap" data-action="pcw-billing" data-id="${c.id}">
+        <span class="row__main"><span class="row__title">${esc(c.display_name)}</span>
+          <span class="row__sub">${eur0(bl.monthly_cents)}/mois · ${bl.paid_until ? `payé jusqu'au ${dFr(bl.paid_until)}${late ? " (dépassé)" : ""}` : "aucun paiement noté"} · ${setup}</span></span>
+        <span class="row__end">${pill(...(PLAN[bl.plan_status] || PLAN.pending))}</span></button>`;
+    };
+    return `<div class="kpis kpis--stats">
+        <div class="kpi"><span class="kpi__label">Revenu mensuel</span><span class="kpi__value">${eur0(d.mrr_cents)}</span><span class="kpi__sub">Abonnements actifs</span></div>
+        <div class="kpi ${d.overdue.count ? "kpi--alert" : ""}"><span class="kpi__label">En retard</span><span class="kpi__value">${d.overdue.count ? eur0(d.overdue.cents) : "0"}</span><span class="kpi__sub">${d.overdue.count} abonnement${d.overdue.count > 1 ? "s" : ""}</span></div>
+        <div class="kpi"><span class="kpi__label">Offres de lancement</span><span class="kpi__value">${d.waived_setups} / 10</span><span class="kpi__sub">Mises en ligne offertes</span></div>
+      </div>
+      <p class="muted" style="margin:0 0 10px;font-size:13px">Suivi à la main jusqu'au paiement en ligne (lot 3). Ouvrez un coach pour noter un paiement ou modifier son contrat.</p>
+      <section class="card">${list.length ? `<div class="rows">${list.map(row).join("")}</div>` : `<div class="empty">Aucun coach client.</div>`}</section>
+      ${pcwInvoicesHtml()}`;
+  }
+
+  const INV_ST = { issued: ["pending", "À payer"], paid: ["confirmed", "Payée"], cancelled: ["neutral", "Annulée"] };
+  function pcwInvoicesHtml() {
+    const inv = S.pcw.invoices || [];
+    const st = S.pcw.settings || {};
+    const row = (i) => `<div class="row row--wrap" style="cursor:default">
+        <span class="row__main"><span class="row__title">${esc(i.number)} · ${esc(i.coach_name || "")}</span>
+          <span class="row__sub">${eur0(i.total_cents)} · émise le ${dFr(i.issued_on)} · échéance ${dFr(i.due_on)}${i.paid_on ? ` · payée le ${dFr(i.paid_on)}` : ""}</span></span>
+        <span class="row__end">${pill(...INV_ST[i.status])}<span class="btn-row" style="gap:6px">
+          <button type="button" class="btn btn--sm" data-action="inv-print" data-id="${i.id}">Voir / imprimer</button><button type="button" class="btn btn--sm" data-action="inv-link" data-id="${i.id}">Lien Stripe</button>
+          ${i.status === "issued" ? `<button type="button" class="btn btn--sm btn--primary" data-action="inv-paid" data-id="${i.id}">Marquer payée</button><button type="button" class="btn btn--sm" data-action="inv-cancel" data-id="${i.id}">Annuler</button>` : ""}</span></span></div>`;
+    return `<h2 style="margin:22px 0 10px;font-size:18px">Factures</h2>
+      <section class="card">${inv.length ? `<div class="rows">${inv.map(row).join("")}</div>` : `<div class="empty">Aucune facture. Ouvrez un coach dans la liste ci-dessus, puis « Facturer ».</div>`}</section>
+      <section class="card" style="margin-top:12px"><h2>Paiement des factures <small>virement et carte Stripe</small></h2>
+        <div class="form-grid">
+          <label class="field"><span>IBAN</span><input type="text" id="st-iban" maxlength="60" value="${esc(st.iban || "")}" autocomplete="off"></label>
+          <label class="field"><span>BIC</span><input type="text" id="st-bic" maxlength="20" value="${esc(st.bic || "")}" autocomplete="off"></label>
+          <label class="field"><span>Banque (facultatif)</span><input type="text" id="st-bank" maxlength="80" value="${esc(st.bank_name || "")}"></label>
+          <label class="field"><span>Mention libre (facultatif)</span><input type="text" id="st-note" maxlength="200" value="${esc(st.payment_note || "")}" placeholder="Ex. : référence à indiquer au virement"></label>
+          <label class="field"><span>Lien de paiement Stripe : mensualité</span><input type="url" id="st-link-m" maxlength="200" value="${esc(st.stripe_link_monthly || "")}" placeholder="https://buy.stripe.com/..."></label>
+          <label class="field"><span>Lien de paiement Stripe : mise en place</span><input type="url" id="st-link-s" maxlength="200" value="${esc(st.stripe_link_setup || "")}" placeholder="https://buy.stripe.com/..."></label>
+          <p class="full muted" style="margin:0;font-size:13px">Ces liens apparaissent sur chaque facture du coach (bouton « Payer par carte »), avec le numéro de facture et l'email du coach préremplis. Les coachs voient aussi les coordonnées bancaires pour payer par virement.</p>
+          <div class="full"><button type="button" class="btn" data-action="pcw-save-settings">Enregistrer</button></div></div></section>`;
+  }
+
+  // Facture imprimable : même visuel que les factures Pierre Créa Web (bandeau bleu avec logo, cadre « Facturé à »,
+  // tableau, coordonnées bancaires, pied de page). Ouverte dans un nouvel onglet : Imprimer, puis « Enregistrer au format PDF ».
+  const EMETTEUR = { nom: "P.C.W - Pierre Créa Web", adresse: "150 Route d'Agen, 82170 Grisolles", siret: "SIRET 108 153 982 00013",
+    email: "pierre.creaweb@gmail.com", tel: "06 45 33 43 28", site: "pierrecreaweb.fr" };
+  // Lien Stripe de la facture : lien personnalisé, sinon celui de la mensualité / de la mise en place ; référence et email préremplis.
+  function payUrlOf(i, st) {
+    if (i.status !== "issued") return "";
+    const base = i.pay_url || i.payment_url || (st && (i.kind === "monthly" ? st.stripe_link_monthly : i.kind === "setup" ? st.stripe_link_setup : "")) || "";
+    if (!base) return "";
+    const cl = i.client || {};
+    return base + (base.includes("?") ? "&" : "?") + "client_reference_id=" + encodeURIComponent(i.number) + (cl.email ? "&prefilled_email=" + encodeURIComponent(cl.email) : "");
+  }
+  function invoiceHtml(i, pay) {
+    const st = pay || {};
+    const cl = i.client || {};
+    const logo = new URL("../assets/pcw-logo.png", location.href).href;
+    const payUrl = payUrlOf(i, st);
+    const lines = (i.lines || []).map((l, k) => `<tr class="${k % 2 ? "" : "alt"}"><td>${esc(l.label)}</td><td class="r">${l.qty}</td><td class="r">${eur0(l.unit_cents)}</td><td class="r">${eur0(l.qty * l.unit_cents)}</td></tr>`).join("");
+    const clientLines = [cl.name, cl.address, cl.siret ? "SIRET " + cl.siret : "", cl.email].filter(Boolean).flatMap((x) => String(x).split("\n"));
+    const period = i.period_start && i.period_end ? `&nbsp;&nbsp;&nbsp;&nbsp; Période : du ${dFr(i.period_start)} au ${dFr(i.period_end)}` : "";
+    const stamp = i.status === "paid" ? ["PAYÉE", "#c9ead8"] : i.status === "cancelled" ? ["ANNULÉE", "#e4e6ec"] : null;
+    const bank = st.iban ? `<div class="box"><div class="k">COORDONNÉES BANCAIRES POUR LE RÈGLEMENT PAR VIREMENT</div>
+        <div class="big">IBAN : ${esc(st.iban)}</div><div class="big">${st.bic ? `BIC : ${esc(st.bic)}` : ""}${st.bank_name ? `&nbsp;&nbsp;·&nbsp;&nbsp;${esc(st.bank_name)}` : ""}</div>
+        <div class="small">Référence à indiquer au virement : <b>${esc(i.number)}</b>${st.payment_note ? ` · ${esc(st.payment_note)}` : ""}</div></div>` : "";
+    const payBlock = i.status === "issued" ? `<p class="pay">Vous pouvez, si vous le souhaitez, régler cette facture par <b>virement bancaire</b>${bank ? " (coordonnées ci-dessous)" : ""}${payUrl ? ` ou par <b>carte bancaire</b> en ligne : <a href="${esc(payUrl)}" target="_blank" rel="noopener">payer cette facture par carte</a>` : ""}.</p>${bank}` : "";
+    return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Facture ${esc(i.number)}</title><style>
+      @page { size: A4; margin: 0; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: #e9edf3; font: 11pt/1.35 Helvetica, Arial, sans-serif; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; padding: 10px; background: #fff; border-bottom: 1px solid #ccd3df; }
+      .bar button, .bar a { font: 700 14px Arial, sans-serif; padding: 9px 14px; border-radius: 8px; border: 1px solid #2C96D8; background: #fff; color: #1b6fa8; cursor: pointer; text-decoration: none; }
+      .bar .pri { background: #2C96D8; color: #fff; }
+      .page { position: relative; width: 210mm; min-height: 297mm; margin: 12px auto; background: #fff; overflow: hidden; padding-bottom: 28mm; box-shadow: 0 2px 14px rgba(0,0,0,.15); }
+      .band { position: relative; height: 36mm; background: #2C96D8; color: #fff; }
+      .logo { position: absolute; left: 16mm; top: 7mm; width: 22mm; height: 22mm; border-radius: 4mm; }
+      .ttl { position: absolute; left: 44mm; top: 0; height: 36mm; display: flex; align-items: center; font-size: 22pt; font-weight: 700; }
+      .iss { position: absolute; right: 16mm; top: 8mm; text-align: right; font-size: 8.3pt; line-height: 4.2mm; }
+      .in { padding: 0 16mm; }
+      .info { margin: 9mm 0 5mm; font-size: 10pt; color: #5a5a5a; }
+      .box { border: 1px solid #e0e3eb; background: #f7f8fc; border-radius: 2.5mm; padding: 4mm 5mm; }
+      .k { font-size: 9.5pt; color: #787878; margin-bottom: 2mm; }
+      .cl { font-size: 10.5pt; line-height: 5.6mm; }
+      h2 { font-size: 12pt; margin: 9mm 0 4mm; font-weight: 400; }
+      table { width: 100%; border-collapse: collapse; }
+      th { background: #2C96D8; color: #fff; font-size: 8.5pt; text-align: left; padding: 2.4mm 4mm; font-weight: 400; }
+      td { padding: 2mm 4mm; font-size: 10pt; } tr.alt td { background: #f7f8fc; } .r { text-align: right; }
+      hr { border: 0; border-top: 1px solid #d2d2d2; margin: 3mm 0 6mm; }
+      .tva { font-size: 9pt; color: #5a5a5a; margin: 0 0 6mm 4mm; }
+      .net { font-size: 13pt; font-weight: 700; margin: 0 0 7mm 4mm; }
+      .pay { font-size: 10pt; margin: 0 0 4mm; } .pay a { color: #1b6fa8; word-break: break-all; }
+      .big { font-size: 11pt; line-height: 6mm; } .small { font-size: 9pt; color: #5a5a5a; margin-top: 1mm; }
+      .cond { margin-top: 7mm; font-size: 9pt; color: #444; line-height: 1.45; } .cond b { font-size: 10pt; color: #000; }
+      .stamp { position: absolute; left: 0; right: 0; top: 125mm; text-align: center; font-size: 54pt; font-weight: 700; transform: rotate(-25deg); pointer-events: none; }
+      .foot { position: absolute; left: 0; right: 0; bottom: 10mm; text-align: center; font-size: 8pt; color: #787878; padding: 0 17mm; }
+      @media print { body { background: #fff; } .bar { display: none; } .page { margin: 0; box-shadow: none; } }
+    </style></head><body>
+      <div class="bar"><button class="pri" onclick="window.print()">Imprimer / enregistrer en PDF</button>${payUrl ? `<a class="pri" href="${esc(payUrl)}" target="_blank" rel="noopener">Payer par carte</a>` : ""}</div>
+      <div class="page">
+        <div class="band"><img class="logo" src="${esc(logo)}" alt=""><div class="ttl">FACTURE</div>
+          <div class="iss">${[EMETTEUR.nom, EMETTEUR.adresse, EMETTEUR.siret, EMETTEUR.email, "Tél : " + EMETTEUR.tel, EMETTEUR.site].map(esc).join("<br>")}</div></div>
+        ${stamp ? `<div class="stamp" style="color:${stamp[1]}">${stamp[0]}</div>` : ""}
+        <div class="in">
+          <div class="info">N° : ${esc(i.number)} &nbsp;&nbsp;&nbsp;&nbsp; Date : ${dFr(i.issued_on)} &nbsp;&nbsp;&nbsp;&nbsp; Échéance : ${dFr(i.due_on)}${period}</div>
+          <div class="box"><div class="k">FACTURÉ À</div><div class="cl">${clientLines.map(esc).join("<br>") || "&nbsp;"}</div></div>
+          <h2>Détail</h2>
+          <table><thead><tr><th>DÉSIGNATION</th><th class="r">QTÉ</th><th class="r">PU (€)</th><th class="r">TOTAL (€)</th></tr></thead><tbody>${lines}</tbody></table>
+          <hr>
+          <p class="tva">TVA non applicable, art. 293 B du CGI</p>
+          <p class="net">${i.status === "paid" ? `FACTURE ACQUITTÉE LE ${dFr(i.paid_on)} : ${eur0(i.total_cents)}` : `NET À PAYER : ${eur0(i.total_cents)}`}</p>
+          ${payBlock}
+          <div class="cond"><b>Conditions :</b> contrat d'abonnement PCW Padel Coach et conditions générales de vente (pcwpadel.fr/cgv.html). Pas d'escompte pour paiement anticipé. En cas de retard de paiement : pénalités au taux de trois fois le taux d'intérêt légal et indemnité forfaitaire de 40 € pour frais de recouvrement.</div>
+        </div>
+        <div class="foot">${[EMETTEUR.nom, EMETTEUR.adresse, EMETTEUR.siret, EMETTEUR.email, "Tél : " + EMETTEUR.tel, EMETTEUR.site].map(esc).join(" — ")}</div>
+      </div></body></html>`;
+  }
+  function openInvoice(i, pay) {
+    const w = window.open("", "_blank");
+    if (!w) return toast("Autorisez les fenêtres pop-up pour afficher la facture.");
+    w.document.open(); w.document.write(invoiceHtml(i, pay || (S.pcw && S.pcw.settings) || {})); w.document.close();
+  }
+
+  async function invoiceDrawer(coachId, kind) {
+    const c = S.pcw.coaches.find((x) => x.id === coachId);
+    if (!c) return;
+    let sc = {};
+    try { sc = ((await S.api.getSiteContent(coachId)) || {}).content || {}; } catch { /* champs vides */ }
+    const b = c.billing || {};
+    const label = kind === "setup" ? `Mise en place du site : ${eur0(b.setup_fee_cents)}` : `Mensualité : ${eur0(b.monthly_cents)}`;
+    openDrawer({
+      title: `Facturer · ${c.display_name}`,
+      body: `<p class="muted" style="margin-top:0">${esc(label)}. Vérifiez l'identité du client : elle est figée sur la facture.</p>
+        <div class="form-grid">
+          <label class="field full"><span>Nom ou raison sociale</span><input type="text" id="iv-name" maxlength="120" value="${esc(sc.legal_name || c.display_name)}"></label>
+          <label class="field full"><span>Adresse</span><textarea id="iv-addr" rows="2" maxlength="250" placeholder="Rue, code postal, ville">${esc(sc.legal_address || "")}</textarea></label>
+          <label class="field"><span>SIRET</span><input type="text" id="iv-siret" maxlength="25" value="${esc(sc.siret || "")}"></label>
+          <label class="field"><span>Email</span><input type="email" id="iv-email" maxlength="120" value="${esc(c.notify_email || c.owner_email || "")}"></label>
+          ${kind === "monthly" ? `<label class="field full"><span>Début de la période (facultatif)</span><input type="date" id="iv-start"><small class="muted">Laissez vide : la période suit la dernière payée.</small></label>` : ""}
+        </div>`,
+      foot: `<button class="btn btn--primary" data-action="inv-create" data-id="${coachId}" data-kind="${kind}">Créer la facture</button>`,
+    });
+  }
+
+  function pcwCoachDrawer(id, opts = {}) {
+    const c = S.pcw && S.pcw.coaches.find((x) => x.id === id);
+    if (!c) return;
+    const bl = c.billing || {};
+    const check = (ok, label) => `<li style="list-style:none">${ok ? "✓" : "✗"} ${label}</li>`;
+    const siteUrl = coachSiteUrl(c);
+    openDrawer({
+      title: c.display_name, wide: true,
+      body: `${opts.confirmDelete ? `<div class="confirm-box">Supprimer définitivement ${esc(c.display_name)} et toute sa configuration ? Impossible s'il a des réservations ou s'il est en ligne.
+          <div class="btn-row"><button class="btn" data-action="pcw-coach" data-id="${id}">Non</button><button class="btn btn--dark" data-action="pcw-delete" data-id="${id}">Supprimer</button></div></div>` : ""}
+        <dl class="kv">
+          <dt>Statut</dt><dd>${pill(...ST_LABEL[c.status] || ST_LABEL.draft)} ${pill(...(PLAN[bl.plan_status] || PLAN.pending))}</dd>
+          <dt>Site</dt><dd>${siteUrl ? `<a href="${esc(siteUrl)}" target="_blank" rel="noopener">${esc(c.custom_domain)}</a>` : `<span class="muted">Pas de domaine renseigné</span>`}</dd>
+          ${siteUrl ? `<dt>Back-office</dt><dd><a href="${esc(siteUrl)}admin/" target="_blank" rel="noopener">${esc(c.custom_domain)}/admin/</a></dd>` : ""}
+          <dt>Compte</dt><dd>${esc(c.owner_email || "—")}${c.invite_pending ? ` <span class="muted">· invitation non acceptée</span>` : c.last_sign_in_at ? ` <span class="muted">· dernière connexion ${esc(dFr(c.last_sign_in_at))}</span>` : ""}</dd>
+          <dt>Créé le</dt><dd>${esc(dFr(c.created_at))}</dd>
+          <dt>Activité</dt><dd>${c.bookings_30d} réservation${c.bookings_30d > 1 ? "s" : ""} sur 30 j · ${c.bookings_upcoming} à venir · ${c.bookings_total} au total</dd>
+          <dt>Avis élèves</dt><dd>${c.rating_count ? `${c.rating} / 5 (${c.rating_count})` : "Aucun"}</dd>
+        </dl>
+        <h3 style="margin:16px 0 6px">Mise en place</h3>
+        <ul style="margin:0;padding:0">${check(c.services_count, `${c.services_count} prestation${c.services_count > 1 ? "s" : ""} active${c.services_count > 1 ? "s" : ""}`)}${check(c.locations_count, `${c.locations_count} lieu${c.locations_count > 1 ? "x" : ""}`)}${check(c.rules_count, `${c.rules_count} plage${c.rules_count > 1 ? "s" : ""} d'horaires`)}</ul>
+        <h3 style="margin:16px 0 6px">Réglages</h3>
+        <div class="form-grid">
+          <label class="field"><span>Statut du site</span><select id="pf-status">${["draft", "live", "suspended"].map((s) => `<option value="${s}" ${c.status === s ? "selected" : ""}>${ST_LABEL[s][1]}</option>`).join("")}</select></label>
+          <label class="field"><span>Domaine du site</span><input type="text" id="pf-domain" maxlength="100" value="${esc(c.custom_domain || "")}" placeholder="prenom-nom.padelcoachs.fr" autocapitalize="off"></label>
+          <label class="field full"><span>Email des notifications</span><input type="email" id="pf-notify" value="${esc(c.notify_email || "")}"></label>
+          <label class="switch full"><span><b>Présent dans l'annuaire</b></span><input type="checkbox" id="pf-dir" ${c.directory_listed ? "checked" : ""}></label>
+        </div>
+        <div class="btn-row" style="margin-top:14px">
+          <button type="button" class="btn" data-action="pcw-billing" data-id="${id}">Abonnement</button>
+          <button type="button" class="btn" data-action="pcw-resend" data-id="${id}">Renvoyer l'invitation</button>
+          <button type="button" class="btn" data-action="pcw-open-coach" data-id="${id}">Entrer dans son espace</button></div>`,
+      foot: `<button class="btn btn--danger" data-action="pcw-ask-delete" data-id="${id}">Supprimer</button>
+        <button class="btn btn--primary" data-action="pcw-save" data-id="${id}">Enregistrer</button>`,
+    });
+  }
+
+  function pcwBillingDrawer(id) {
+    const c = S.pcw && S.pcw.coaches.find((x) => x.id === id);
+    if (!c) return;
+    const b = c.billing || {};
+    const val = (v) => esc(v || "");
+    const money = (cents) => ((cents || 0) / 100).toString();
+    const ends = b.live_since ? dFr(addMonthsYmd(b.live_since, b.commitment_months || 0)) : "—";
+    const waivedCount = S.pcw.coaches.filter((x) => x.billing && x.billing.setup_waived).length;
+    const offerOpen = !!b.setup_waived || waivedCount < 10;   // la case disparaît quand les 10 offres sont prises
+    openDrawer({
+      title: `Abonnement · ${c.display_name}`, wide: true,
+      body: `<div class="form-grid">
+          <label class="field"><span>État</span><select id="bf-plan">${Object.entries(PLAN).map(([k, v]) => `<option value="${k}" ${b.plan_status === k ? "selected" : ""}>${v[1]}</option>`).join("")}</select></label>
+          <label class="field"><span>Mise en ligne le</span><input type="date" id="bf-live" value="${val(b.live_since)}"></label>
+          <label class="field"><span>Engagement (mois)</span><input type="number" id="bf-commit" min="0" max="60" value="${b.commitment_months ?? 12}"></label>
+          <div class="field"><span>Fin d'engagement</span><div style="padding:10px 0;font-weight:600">${ends}</div></div>
+          <label class="field"><span>Abonnement (€ / mois)</span><input type="number" id="bf-monthly" min="0" step="0.01" value="${money(b.monthly_cents)}"></label>
+          <label class="field"><span>Payé jusqu'au</span><input type="date" id="bf-paid" value="${val(b.paid_until)}"></label>
+          <label class="field"><span>Mise en ligne (€)</span><input type="number" id="bf-setup" min="0" step="0.01" value="${money(b.setup_fee_cents)}"></label>
+          <label class="field"><span>Mise en ligne payée le</span><input type="date" id="bf-setup-paid" value="${val(b.setup_paid_at)}"></label>
+          ${offerOpen ? `<label class="switch full"><span><b>Mise en ligne offerte</b><small>Offre des 10 premiers coachs (${waivedCount} / 10)</small></span><input type="checkbox" id="bf-waived" ${b.setup_waived ? "checked" : ""}></label>` : ""}
+          <label class="field full"><span>Résiliation demandée le</span><input type="date" id="bf-cancel" value="${val(b.cancel_requested_at)}"></label>
+          <label class="field full"><span>Notes internes</span><textarea id="bf-notes" rows="3" maxlength="2000">${esc(b.notes || "")}</textarea></label>
+        </div>`,
+      foot: `${b.setup_waived || b.setup_paid_at ? "" : `<button class="btn" data-action="inv-new" data-kind="setup" data-id="${id}">Facturer la mise en place</button>`}
+        <button class="btn" data-action="inv-new" data-kind="monthly" data-id="${id}">Facturer le mois</button>
+        <button class="btn" data-action="pcw-paid-month" data-id="${id}">Noter 1 mois payé</button>
+        <button class="btn btn--primary" data-action="pcw-save-billing" data-id="${id}">Enregistrer</button>`,
+    });
+  }
+
+  const gv = (id) => (document.getElementById(id) || {}).value || "";
+  const PCW_ACTIONS = {
+    "pcw-tab": async (el) => {
+      S.ui.pcwTab = el.dataset.tab;
+      closeDrawer();
+      if (currentView() !== "pcw") { location.hash = "pcw"; return; }
+      render();
+      if (["overview", "billing"].includes(S.ui.pcwTab) && S.pcw) refreshPcw();
+    },
+    "pcw-new": () => { S.ui.pcwNew = !S.ui.pcwNew; const s = document.getElementById("pcw-new"); if (s) s.hidden = !S.ui.pcwNew; },
+    "inv-new": (el) => invoiceDrawer(el.dataset.id, el.dataset.kind),
+    "inv-create": async (el) => {
+      const client = { name: gv("iv-name").trim(), address: gv("iv-addr").trim(), siret: gv("iv-siret").trim(), email: gv("iv-email").trim() };
+      if (!client.name) return toast("Indiquez le nom du client.");
+      try {
+        const inv = await S.api.adminCreateInvoice(el.dataset.id, el.dataset.kind, client, gv("iv-start") || null, null);
+        closeDrawer(); await refreshPcw(); toast(`Facture ${inv.number} créée`); openInvoice(inv);
+      } catch (err) { toast(errMsg(err)); }
+    },
+    "inv-print": (el) => { const i = (S.pcw.invoices || []).find((x) => x.id === el.dataset.id); if (i) openInvoice(i); },
+    "inv-coach-open": (el) => { const d = S.invData || {}; const i = (d.invoices || []).find((x) => x.id === el.dataset.id); if (i) openInvoice(i, d.payment || {}); },
+    "inv-link": (el) => {
+      const i = (S.pcw.invoices || []).find((x) => x.id === el.dataset.id); if (!i) return;
+      openDrawer({ title: `Lien de paiement · ${i.number}`,
+        body: `<p class="muted" style="margin:0">Par défaut, le lien Stripe de la mensualité ou de la mise en place (réglé dans « Coordonnées de paiement ») est utilisé. Collez ici un lien Stripe propre à cette facture si le montant est différent.</p>
+          <label class="field"><span>Lien Stripe de cette facture (facultatif)</span><input type="url" id="il-url" maxlength="200" value="${esc(i.payment_url || "")}" placeholder="https://buy.stripe.com/..."></label>`,
+        foot: `<button class="btn btn--primary" data-action="inv-link-save" data-id="${i.id}">Enregistrer</button>` });
+    },
+    "inv-link-save": async (el) => {
+      try {
+        const url = gv("il-url").trim();
+        await S.api.adminSetInvoicePaymentUrl(el.dataset.id, url);
+        const i = (S.pcw.invoices || []).find((x) => x.id === el.dataset.id); if (i) i.payment_url = url || null;
+        closeDrawer(); toast(url ? "Lien de paiement enregistré" : "Lien personnalisé retiré");
+      } catch (err) { toast(errMsg(err)); }
+    },
+    "inv-paid": async (el) => {
+      try { await S.api.adminMarkInvoicePaid(el.dataset.id, null); toast("Facture payée : l'abonnement est à jour"); await refreshPcw(); }
+      catch (err) { toast(errMsg(err)); }
+    },
+    "inv-cancel": async (el) => {
+      if (el.dataset.confirm !== "1") { el.dataset.confirm = "1"; el.textContent = "Confirmer"; return; }
+      try { await S.api.adminCancelInvoice(el.dataset.id, null); toast("Facture annulée"); await refreshPcw(); }
+      catch (err) { toast(errMsg(err)); }
+    },
+    "pcw-save-settings": async () => {
+      try {
+        S.pcw.settings = await S.api.adminSetSettings({ iban: gv("st-iban"), bic: gv("st-bic"), bank_name: gv("st-bank"), payment_note: gv("st-note"), stripe_link_monthly: gv("st-link-m"), stripe_link_setup: gv("st-link-s") });
+        toast("Coordonnées de paiement enregistrées");
+      } catch (err) { toast(errMsg(err)); }
+    },
+    "pcw-coach": (el) => pcwCoachDrawer(el.dataset.id),
+    "pcw-ask-delete": (el) => pcwCoachDrawer(el.dataset.id, { confirmDelete: true }),
+    "pcw-billing": (el) => pcwBillingDrawer(el.dataset.id),
+    "pcw-open-coach": (el) => enterCoach(el.dataset.id),
+    "pcw-more": () => openDrawer({
+      title: "Plus",
+      body: `<div class="sheet-menu">
+        <span class="sheet-menu__group">Console PCW</span>
+        <button type="button" data-action="pcw-goto-push">${icon("bell")} Notifications</button>
+        <a href="https://pcwpadel.fr/" target="_blank" rel="noopener">${icon("ext")} Page de vente pcwpadel.fr</a>
+        <span class="sheet-menu__group">Entrer dans le site d'un coach</span>
+        ${(S.coaches || []).length ? (S.coaches || []).map((c) => `<button type="button" data-action="pcw-open-coach" data-id="${c.id}">${icon("users")} ${esc(c.display_name)}</button>`).join("") : `<p class="muted" style="margin:0">Aucun coach pour le moment.</p>`}
+        <span class="sheet-menu__group">Compte</span>
+        <p class="muted" style="margin:0;font-size:13px">${esc((S.user && S.user.email) || "")}</p>
+        <button type="button" data-action="sign-out">${icon("out")} Se déconnecter</button></div>`,
+    }),
+    "pcw-goto-push": () => {
+      closeDrawer();
+      S.ui.pcwTab = "overview"; render();
+      setTimeout(() => { const c = document.getElementById("push-card"); if (c) c.scrollIntoView({ behavior: "smooth", block: "start" }); }, 400);
+    },
+    "pcw-save": async (el) => {
+      const id = el.dataset.id;
+      const domain = gv("pf-domain").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+      const notify = gv("pf-notify").trim().toLowerCase();
+      if (domain && !/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(domain)) return toast("Domaine invalide (exemple : emma-roux.padelcoachs.fr).");
+      if (notify && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(notify)) return toast("Email invalide.");
+      const patch = { status: gv("pf-status"), custom_domain: domain || null, notify_email: notify || null, directory_listed: document.getElementById("pf-dir").checked };
+      try {
+        const row = await S.api.updateCoach(id, patch);
+        const mine = S.coaches.find((x) => x.id === id);
+        if (mine) Object.assign(mine, row);
+        if (S.coach && S.coach.id === id) Object.assign(S.coach, row);
+        toast("Fiche enregistrée"); closeDrawer(); await refreshPcw();
+      } catch (err) { toast(/duplicate|unique|23505/i.test(errMsg(err)) ? "Ce domaine est déjà pris." : errMsg(err)); }
+    },
+    "pcw-resend": async (el) => {
+      try { const r = await S.api.adminResendInvite(el.dataset.id); toast(r.kind === "reset" ? `Lien de connexion envoyé à ${r.email}` : `Invitation renvoyée à ${r.email}`); }
+      catch (err) { toast(errMsg(err)); }
+    },
+    "pcw-delete": async (el) => {
+      try {
+        await S.api.adminDeleteCoach(el.dataset.id);
+        S.coaches = await S.api.myCoaches();
+        if (S.coach && S.coach.id === el.dataset.id) await selectCoach(S.coaches[0].id);
+        toast("Coach supprimé"); closeDrawer(); await refreshPcw();
+      } catch (err) { toast(/foreign key|23503|invoices/i.test(errMsg(err)) ? "Ce coach a des factures (à conserver 10 ans) : suspendez-le plutôt que de le supprimer." : errMsg(err)); closeDrawer(); }
+    },
+    "pcw-save-billing": async (el) => {
+      const cents = (id) => Math.round((parseFloat(gv(id).replace(",", ".")) || 0) * 100);
+      const patch = { plan_status: gv("bf-plan"), live_since: gv("bf-live"), commitment_months: parseInt(gv("bf-commit"), 10) || 0,
+        monthly_cents: cents("bf-monthly"), paid_until: gv("bf-paid"), setup_fee_cents: cents("bf-setup"), setup_paid_at: gv("bf-setup-paid"),
+        setup_waived: (document.getElementById("bf-waived") || { checked: false }).checked, cancel_requested_at: gv("bf-cancel"), notes: gv("bf-notes") };
+      try { await S.api.adminSetBilling(el.dataset.id, patch); toast("Abonnement enregistré"); closeDrawer(); await refreshPcw(); }
+      catch (err) { toast(errMsg(err)); }
+    },
+    "pcw-paid-month": async (el) => {
+      const base = gv("bf-paid") && gv("bf-paid") > ymdToday() ? gv("bf-paid") : ymdToday();
+      const patch = { paid_until: addMonthsYmd(base, 1) };
+      if (["pending", "overdue"].includes(gv("bf-plan"))) patch.plan_status = "active";
+      if (!gv("bf-live")) patch.live_since = ymdToday();
+      try { await S.api.adminSetBilling(el.dataset.id, patch); toast(`Payé jusqu'au ${dFr(patch.paid_until)}`); closeDrawer(); await refreshPcw(); }
+      catch (err) { toast(errMsg(err)); }
+    },
   };
 
   // ============================================= avis du coach sur PCW ===
@@ -2204,7 +3143,9 @@
     catch { toast("Sélectionnez le texte puis copiez-le."); }
   }
   const ACTIONS = {
-    "sign-out": async () => { await S.api.signOut(); S.user = null; S.coach = null; closeDrawer(); render(); },
+    ...PCW_ACTIONS,
+    ...PUSH_ACTIONS,
+    "sign-out": async () => { await S.api.signOut(); S.user = null; S.coach = null; S.pcw = null; S.isAdmin = false; closeDrawer(); render(); },
     "reset-demo": async () => { S.api.reset(); await afterSignIn(); toast("Démo réinitialisée"); },
     "magic-link": async () => {
       const email = (document.getElementById("l-email") || {}).value || "";
@@ -2236,20 +3177,22 @@
         if (S.testimonial && S.testimonial.id === el.dataset.id) { S.testimonial = await S.api.getTestimonial(S.coach.id); renderTestimonial(document.getElementById("pcw-avis")); }
       } catch (err) { toast(errMsg(err)); }
     },
-    more: () => openDrawer({
+    more: () => { openDrawer({
       title: "Plus",
       body: `<div class="sheet-menu">
         <span class="sheet-menu__group">Au quotidien</span>
-        <a href="#joueurs">${icon(VIEWS.joueurs.icon)} Joueurs</a>
+        <a href="#stages" data-navkey="stages">${icon("flag")} Stages</a><a href="#joueurs">${icon(VIEWS.joueurs.icon)} Joueurs</a>
         <span class="sheet-menu__group">Mon activité</span>
-        <a href="#statistiques">${icon("chart")} Statistiques</a><a href="#avis">${icon("star")} Avis des élèves</a>
+        <a href="#statistiques">${icon("chart")} Statistiques</a><a href="#avis" data-navkey="avis">${icon("star")} Avis des élèves</a>
         <span class="sheet-menu__group">Ma vitrine</span>
         <a href="#partager">${icon("share")} Partager ma page</a><a href="#mon-site">${icon("brush")} Mon site</a><a href="#prestations">${icon("tag")} Prestations et lieux</a>
         <span class="sheet-menu__group">Compte</span>
-        <a href="#reglages">${icon("gear")} Réglages</a>
+        <a href="#factures" data-navkey="factures">${icon("receipt")} Mes factures</a><a href="#reglages">${icon("gear")} Réglages</a>
+        ${S.isAdmin && S.api.mode !== "demo" ? `<span class="sheet-menu__group">Plateforme PCW</span><a href="#pcw" data-navkey="console">${icon("left")} Retour à la console PCW</a>` : ""}
         <a href="../index.html?c=${encodeURIComponent(S.coach.slug)}" target="_blank" rel="noopener">${icon("ext")} Voir mon site</a>
+        <a href="../aide.html" target="_blank" rel="noopener">${icon("ext")} Aide et contact</a>
         <button type="button" data-action="sign-out">${icon("out")} Se déconnecter</button></div>`,
-    }),
+    }); paintNav(); },
     "new-booking": (el) => newBookingDrawer({ player_id: el.dataset.playerId }),
     "create-booking": (el) => createBookingFromDrawer(el),
     confirm: async (el) => { await patchBooking(el.dataset.id, { status: "confirmed" }, "Réservation validée, le joueur est prévenu"); closeDrawer(); render(); },
@@ -2259,7 +3202,7 @@
     pay: async (el) => { await patchBooking(el.dataset.id, { payment_status: el.dataset.pay, ...(el.dataset.pay === "paid" ? { status: "completed" } : {}) }, el.dataset.pay === "paid" ? "Marquée payée" : "Marquée non payée"); render(); bookingDrawer(el.dataset.id); },
     "no-show": async (el) => { await patchBooking(el.dataset.id, { status: "no_show" }, "Absence notée"); render(); bookingDrawer(el.dataset.id); },
     "undo-no-show": async (el) => { await patchBooking(el.dataset.id, { status: "completed" }, "Séance marquée terminée"); render(); bookingDrawer(el.dataset.id); },
-    "save-notes": async (el) => { await patchBooking(el.dataset.id, { coach_notes: document.getElementById("b-notes").value.trim() || null }, "Notes enregistrées"); },
+    "save-notes": async (el) => { await patchBooking(el.dataset.id, { coach_notes: document.getElementById("b-notes").value.trim() || null, player_notes: document.getElementById("b-pnotes").value.trim() || null }, "Notes enregistrées"); },
     move: (el) => moveZone(el.dataset.id),
     "do-move": async (el) => {
       const b = S.bookings.find((x) => x.id === el.dataset.id);
@@ -2273,6 +3216,58 @@
     week: (el) => { const d = +el.dataset.delta; S.ui.weekStart = d === 0 ? P.mondayOf(todayYmd()) : P.addDays(S.ui.weekStart, d); render(); },
     "del-rule": async (el) => { try { await S.api.remove("availability_rules", el.dataset.id); S.rules = S.rules.filter((r) => r.id !== el.dataset.id); toast("Plage supprimée"); render(); } catch (e) { toast(errMsg(e)); } },
     "del-off": async (el) => { try { await S.api.remove("time_off", el.dataset.id); S.timeOff = S.timeOff.filter((r) => r.id !== el.dataset.id); toast("Absence supprimée"); render(); } catch (e) { toast(errMsg(e)); } },
+    "edit-stage": (el) => stageDrawer(el.dataset.id),
+    "save-stage": (el) => saveStage(el.dataset.id),
+    "ask-delete-stage": (el) => stageDrawer(el.dataset.id, true),
+    "delete-stage": async (el) => {
+      try { await S.api.remove("stages", el.dataset.id); S.stages = S.stages.filter((x) => x.id !== el.dataset.id); S.stageRegs = S.stageRegs.filter((r) => r.stage_id !== el.dataset.id);
+        await reloadCalendar(); closeDrawer(); toast("Stage supprimé"); render(); } catch (e) { toast(errMsg(e)); }
+    },
+    "reg-set": async (el) => {
+      try { const r = await S.api.update("stage_registrations", el.dataset.id, { status: el.dataset.status });
+        S.stageRegs[S.stageRegs.findIndex((x) => x.id === r.id)] = r; stageDrawer(r.stage_id); render(); toast({ confirmed: "Inscription confirmée", cancelled: "Inscription annulée", pending: "Inscription rétablie" }[r.status]); }
+      catch (e) { toast(errMsg(e)); }
+    },
+    "reg-pay": async (el) => {
+      const cur = S.stageRegs.find((x) => x.id === el.dataset.id);
+      try { const r = await S.api.update("stage_registrations", cur.id, { payment_status: cur.payment_status === "paid" ? "unpaid" : "paid" });
+        S.stageRegs[S.stageRegs.findIndex((x) => x.id === r.id)] = r; stageDrawer(r.stage_id); toast(r.payment_status === "paid" ? "Marqué payé" : "Marqué non payé"); }
+      catch (e) { toast(errMsg(e)); }
+    },
+    "edit-pack": (el) => packDrawer(el.dataset.id),
+    "save-pack": (el) => savePack(el.dataset.id),
+    "ask-delete-pack": (el) => packDrawer(el.dataset.id, true),
+    "delete-pack": async (el) => { try { await S.api.remove("packs", el.dataset.id); S.packs = S.packs.filter((k) => k.id !== el.dataset.id); closeDrawer(); toast("Pack supprimé"); render(); } catch (e) { toast(errMsg(e)); } },
+    "goal-add": async (el) => {
+      const t = (document.getElementById("pg-title") || {}).value || "";
+      if (!t.trim()) { toast("Décrivez l'objectif"); return; }
+      try { S.goals.push(await S.api.insert("player_goals", { coach_id: S.coach.id, player_id: el.dataset.playerId, title: t.trim(), created_by: "coach" })); playerDrawer(el.dataset.playerId); toast("Objectif ajouté"); }
+      catch (e) { toast(errMsg(e)); }
+    },
+    "goal-status": async (el) => {
+      try { const r = await S.api.update("player_goals", el.dataset.id, { status: el.dataset.status, progress: el.dataset.status === "done" ? 100 : undefined, done_at: el.dataset.status === "done" ? new Date().toISOString() : null });
+        S.goals[S.goals.findIndex((x) => x.id === r.id)] = r; playerDrawer(r.player_id); }
+      catch (e) { toast(errMsg(e)); }
+    },
+    "skill-set": async (el) => {
+      const pid = el.dataset.playerId, lv = Number(el.dataset.level);
+      if (skillNow(pid, el.dataset.skill) === lv) return;
+      try { S.skillRatings.push(await S.api.insert("player_skill_ratings", { coach_id: S.coach.id, player_id: pid, skill: el.dataset.skill, level: lv })); playerDrawer(pid); toast("Note enregistrée"); }
+      catch (e) { toast(errMsg(e)); }
+    },
+    "pmsg-send": async (el) => {
+      const t = (document.getElementById("pm-body") || {}).value || "";
+      if (!t.trim()) { toast("Écrivez un message"); return; }
+      try { S.pMessages.push(await S.api.insert("player_messages", { coach_id: S.coach.id, player_id: el.dataset.playerId, sender: "coach", body: t.trim() })); playerDrawer(el.dataset.playerId); toast("Message envoyé"); }
+      catch (e) { toast(errMsg(e)); }
+    },
+    "sell-pack": (el) => sellPackDrawer(el.dataset.playerId),
+    "do-sell-pack": (el) => doSellPack(el.dataset.playerId),
+    "pack-pay": async (el) => {
+      const cur = S.playerPacks.find((x) => x.id === el.dataset.id);
+      try { const r = await S.api.update("player_packs", cur.id, { payment_status: cur.payment_status === "paid" ? "unpaid" : "paid" });
+        S.playerPacks[S.playerPacks.findIndex((x) => x.id === r.id)] = r; playerDrawer(r.player_id); } catch (e) { toast(errMsg(e)); }
+    },
     "edit-service": (el) => serviceDrawer(el.dataset.id),
     "save-service": (el) => saveService(el.dataset.id),
     "ask-delete-service": (el) => serviceDrawer(el.dataset.id, true),
@@ -2425,6 +3420,12 @@
     if (t.dataset.player && !t.dataset.action) { playerDrawer(t.dataset.player); return; }
     const fn = ACTIONS[t.dataset.action];
     if (fn) { e.preventDefault(); try { await fn(t); } catch (err) { console.error(err); } }
+  });
+  document.addEventListener("change", async (e) => {
+    const sel = e.target.closest && e.target.closest("[data-booking-pack]");
+    if (!sel) return;
+    try { await patchBooking(sel.dataset.bookingPack, { player_pack_id: sel.value || null }, sel.value ? "Séance rattachée au pack" : "Séance détachée du pack"); }
+    catch { const b = S.bookings.find((x) => x.id === sel.dataset.bookingPack); sel.value = (b && b.player_pack_id) || ""; }
   });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && e.target.matches("tr[data-player]")) playerDrawer(e.target.dataset.player);

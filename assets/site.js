@@ -360,6 +360,7 @@
     if (state.loadingSlots) {
       return `<h3 class="h3">Choisissez votre créneau</h3><div class="skeleton" style="height:76px"></div><div class="skeleton" style="height:120px;margin-top:16px"></div>`;
     }
+    pruneSlots();
     const today = P.localYmd(new Date(), state.tz);
     const days = [];
     for (let i = 0; i <= state.site.coach.max_advance_days; i++) days.push(P.addDays(today, i));
@@ -452,6 +453,27 @@
     }
   }
 
+  // Retire les créneaux déjà passés (ou trop proches, selon le délai du coach) d'une liste restée affichée.
+  function pruneSlots() {
+    const limit = Date.now() + (Number(state.site && state.site.coach && state.site.coach.min_notice_hours) || 0) * 3600000;
+    const keep = (state.slots || []).filter((s) => new Date(s.starts_at).getTime() > limit);
+    if (keep.length === state.slots.length) return false;
+    state.slots = keep;
+    state.byDay = new Map();
+    for (const s of keep) {
+      const d = P.localYmd(new Date(s.starts_at), state.tz);
+      if (!state.byDay.has(d)) state.byDay.set(d, []);
+      state.byDay.get(d).push(s);
+    }
+    if (state.slot && !keep.some((s) => s.starts_at === state.slot.starts_at)) state.slot = null;
+    if (!state.byDay.has(state.day)) state.day = state.byDay.keys().next().value || state.day;
+    return true;
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible" && state.service && state.step >= 2 && state.step < 4 && !state.loadingSlots) loadSlots();
+  });
+  setInterval(() => { if (state.service && state.step === 2 && !state.loadingSlots && pruneSlots()) renderBooking(); }, 60000);
+
   async function loadSlots() {
     state.loadingSlots = true;
     state.slot = null;
@@ -533,6 +555,7 @@
       else if (t.dataset.service) selectService(t.dataset.service, false);
       else if (t.dataset.day) { state.day = t.dataset.day; state.slot = null; state.error = ""; renderBooking(); }
       else if (t.dataset.slot) {
+        if (pruneSlots()) { state.error = "Ce créneau n'est plus disponible. Choisissez-en un autre."; renderBooking(); return; }
         state.slot = (state.byDay.get(state.day) || []).find((s) => s.starts_at === t.dataset.slot);
         state.error = "";
         renderBooking();
