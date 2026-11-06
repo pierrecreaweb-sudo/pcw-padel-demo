@@ -1299,7 +1299,7 @@
       toast("Envoi de l'image…");
       try {
         // Le logo garde sa transparence ; les photos sont réduites pour un site rapide.
-        const file = key === "logo_url" ? inp.files[0] : await compressImage(inp.files[0]);
+        const file = key === "logo_url" ? await toJpegIfHeic(inp.files[0]) : await compressImage(inp.files[0]);
         if (file.size > 5e6) { toast("Image trop lourde : 5 Mo maximum."); return; }
         const url = await S.api.upload(S.coach.id, file);
         page.querySelector("#img-" + key).value = url;
@@ -1405,7 +1405,33 @@
 
   // ---------------------------------------------------------- galerie ---
   // Réduit une photo (côté le plus long, qualité JPEG) avant l'envoi : pages plus rapides, stockage économisé.
-  function compressImage(file, maxSide = S.api.mode === "demo" ? 1100 : 1800, quality = S.api.mode === "demo" ? 0.72 : 0.82) {
+  // Photos d'iPhone (HEIC/HEIF) : le serveur ne les accepte pas. On les convertit en JPEG dans le navigateur.
+  const isHeic = (f) => /^image\/hei[cf]/i.test(f.type) || /\.(heic|heif)$/i.test(f.name || "");
+  let heicLib = null;
+  function loadHeicLib() {
+    if (window.heic2any) return Promise.resolve(window.heic2any);
+    if (!heicLib) heicLib = new Promise((ok, ko) => {
+      const sc = document.createElement("script");
+      sc.src = "https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js";
+      sc.onload = () => window.heic2any ? ok(window.heic2any) : ko(new Error("heic"));
+      sc.onerror = () => { heicLib = null; ko(new Error("heic")); };
+      document.head.appendChild(sc);
+    });
+    return heicLib;
+  }
+  async function toJpegIfHeic(file) {
+    if (!isHeic(file)) return file;
+    const conv = await loadHeicLib();
+    const out = await conv({ blob: file, toType: "image/jpeg", quality: 0.85 });
+    const blob = Array.isArray(out) ? out[0] : out;
+    return new File([blob], (file.name || "photo").replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+  }
+  async function compressImage(file, maxSide, quality) {
+    try { file = await toJpegIfHeic(file); }
+    catch (e) { throw new Error("Cette photo iPhone (HEIC) n'a pas pu être convertie. Envoyez-la en JPG ou réglez l'iPhone sur « Le plus compatible »."); }
+    return compressImageRaw(file, maxSide, quality);
+  }
+  function compressImageRaw(file, maxSide = S.api.mode === "demo" ? 1100 : 1800, quality = S.api.mode === "demo" ? 0.72 : 0.82) {
     return new Promise((resolve) => {
       if (!/^image\/(jpeg|png|webp)$/i.test(file.type)) return resolve(file);
       const url = URL.createObjectURL(file);
