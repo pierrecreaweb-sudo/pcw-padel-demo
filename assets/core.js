@@ -209,7 +209,7 @@
   function normCrop(c) {
     if (!c || typeof c !== "object") return null;
     const n = (v, lo, hi, d) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
-    const o = { x: Math.round(n(c.x, 0, 100, 50) * 10) / 10, y: Math.round(n(c.y, 0, 100, 50) * 10) / 10, z: Math.round(n(c.z, 1, 3, 1) * 100) / 100 };
+    const o = { x: Math.round(n(c.x, 0, 100, 50) * 10) / 10, y: Math.round(n(c.y, 0, 100, 50) * 10) / 10, z: Math.round(n(c.z, 0.3, 3, 1) * 100) / 100 };
     return o.x === 50 && o.y === 50 && o.z === 1 ? null : o;
   }
   function cropStyle(c) {

@@ -1359,7 +1359,7 @@
           <div class="crop__frame" style="aspect-ratio:${f.ratio};--r:${f.ratio}" tabindex="0" role="application" aria-label="Cadre ${esc(f.label)} : glissez ou utilisez les flèches du clavier">
             <img src="${esc(url)}" alt="" draggable="false"><span class="crop__grid" aria-hidden="true"></span></div>
           <figcaption>${esc(f.label)}</figcaption></figure>`).join("")}</div>
-        <label class="field crop__zoom"><span>Zoom <small id="crop-zv"></small></span><input type="range" id="crop-z" min="1" max="3" step="0.01"></label>
+        <label class="field crop__zoom"><span>Zoom <small id="crop-zv"></small></span><input type="range" id="crop-z" min="0.3" max="3" step="0.01"></label>
       </div>`,
       foot: `<button type="button" class="btn" id="crop-reset">Centrer</button><span style="flex:1"></span>
         <button type="button" class="btn" data-close-drawer>Annuler</button><button type="button" class="btn btn--dark" id="crop-save">Enregistrer le cadrage</button>`,
@@ -1395,7 +1395,7 @@
         e.preventDefault();
         c.x = Math.min(100, Math.max(0, c.x + k[0] * 2)); c.y = Math.min(100, Math.max(0, c.y + k[1] * 2)); paint();
       });
-      frame.addEventListener("wheel", (e) => { e.preventDefault(); c.z = Math.min(3, Math.max(1, Math.round((c.z - e.deltaY * 0.002) * 100) / 100)); paint(); }, { passive: false });
+      frame.addEventListener("wheel", (e) => { e.preventDefault(); c.z = Math.min(3, Math.max(0.3, Math.round((c.z - e.deltaY * 0.002) * 100) / 100)); paint(); }, { passive: false });
     });
     zoom.addEventListener("input", () => { c.z = +zoom.value; paint(); });
     el.querySelector("#crop-reset").addEventListener("click", () => { c = { x: 50, y: 50, z: 1 }; paint(); });
