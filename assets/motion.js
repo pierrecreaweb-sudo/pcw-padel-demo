@@ -50,6 +50,7 @@
 
   // --- 3. Chiffres clés : compteur animé (ex. 150+, 3 ans) ---
   const done = new WeakSet();
+  const easeOut = (k) => 1 - Math.pow(1 - k, 4); // démarre vite, finit très doucement
   function countUps() {
     if (root.classList.contains("boot")) return;
     document.querySelectorAll(".stats dd").forEach((dd) => {
@@ -57,20 +58,37 @@
       const m = /^(\d{1,5})(.*)$/.exec(dd.textContent.trim());
       if (!m) return;
       done.add(dd);
-      dd.dataset.moText = dd.textContent;
-      const end = Number(m[1]), tail = m[2], t0 = performance.now(), dur = 1100;
+      const end = Number(m[1]), tail = m[2];
       if (end < 2) return;
-      const step = (now) => {
-        const k = Math.min(1, (now - t0) / dur), v = Math.round(end * (1 - Math.pow(1 - k, 3)));
-        dd.textContent = v + tail;
-        if (k < 1) requestAnimationFrame(step); else dd.dataset.moText = dd.textContent;
-      };
+      dd.dataset.moText = dd.textContent;
+      // Plus la valeur est grande, plus le décompte dure (3 à 4,5 s), après l'entrée du bandeau.
+      const dur = Math.min(4500, 3000 + Math.log10(end) * 450), wait = 1300;
       dd.textContent = "0" + tail;
-      requestAnimationFrame(step);
+      setTimeout(() => {
+        const t0 = performance.now();
+        const step = (now) => {
+          const k = Math.min(1, (now - t0) / dur);
+          dd.textContent = Math.round(end * easeOut(k)) + tail;
+          if (k < 1) requestAnimationFrame(step); else dd.dataset.moText = dd.textContent;
+        };
+        requestAnimationFrame(step);
+      }, wait);
     });
   }
   countUps();
   new MutationObserver(() => { if (!root.classList.contains("boot")) countUps(); }).observe(root, { attributes: true, attributeFilter: ["class"] });
+
+  // --- 3b. Boutons : onde au clic ---
+  document.addEventListener("pointerdown", (e) => {
+    const b = e.target.closest && e.target.closest(".btn--ball, .btn--brand");
+    if (!b || b.disabled) return;
+    const r = b.getBoundingClientRect(), d = Math.max(r.width, r.height) * 1.6;
+    const s = document.createElement("span");
+    s.className = "btn__ripple";
+    s.style.cssText = `width:${d}px;height:${d}px;left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px`;
+    b.appendChild(s);
+    setTimeout(() => s.remove(), 700);
+  }, { passive: true });
 
   // --- 4. En-tête (ombre au défilement), barre de progression, léger parallaxe de la photo ---
   const top = document.querySelector(".topbar");

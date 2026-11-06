@@ -531,3 +531,20 @@ a { color: inherit; }
 
 @keyframes mo-page { from { opacity: 0; } to { opacity: 1; } }
 html:not(.boot) body { animation: mo-page .35s ease backwards; }
+
+/* Boutons d'action : reflet qui traverse, halo au survol, onde au clic */
+.btn--ball, .btn--brand { position: relative; overflow: hidden; isolation: isolate; }
+.js-motion:not(.boot) .btn--ball::after, .js-motion:not(.boot) .btn--brand::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%; z-index: -1; pointer-events: none;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, .55), transparent); transform: skewX(-20deg);
+  animation: mo-shine 5.5s 2.8s infinite ease-in-out;
+}
+@keyframes mo-shine { 0% { left: -60%; } 18%, 100% { left: 130%; } }
+@media (hover: hover) {
+  .btn--ball:not(:disabled):hover { box-shadow: 0 0 0 4px color-mix(in srgb, var(--ball) 35%, transparent), 0 10px 26px rgba(0, 0, 0, .25); transform: translateY(-2px) scale(1.03); }
+  .btn--brand:not(:disabled):hover { box-shadow: 0 0 0 4px color-mix(in srgb, var(--brand) 22%, transparent), 0 10px 26px rgba(11, 24, 48, .25); transform: translateY(-2px) scale(1.03); }
+  .btn--ghost-light:not(:disabled):hover { background: rgba(255, 255, 255, .12); border-color: rgba(255, 255, 255, .8); }
+  .btn--ball:not(:disabled):hover::after, .btn--brand:not(:disabled):hover::after { animation-duration: 1.1s; animation-delay: 0s; animation-iteration-count: 1; }
+}
+.btn__ripple { position: absolute; z-index: -1; border-radius: 50%; background: rgba(255, 255, 255, .5); transform: scale(0); animation: mo-ripple .65s ease-out forwards; pointer-events: none; }
+@keyframes mo-ripple { to { transform: scale(1); opacity: 0; } }
