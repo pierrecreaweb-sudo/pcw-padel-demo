@@ -858,7 +858,7 @@
   }
 
   function serviceDrawer(id, confirmDelete) {
-    const s = id ? svcById(id) : { name: "", description: "", duration_minutes: 60, price_cents: 5000, capacity: 1, level: "", location_id: null, color: "#1F6FEB", active: true };
+    const s = id ? svcById(id) : { name: "", description: "", duration_minutes: 60, price_cents: 5000, capacity: 1, level: "", location_id: null, color: "#1F6FEB", active: true, shared_slot: true, max_level_gap: 1 };
     const durations = [30, 45, 60, 75, 90, 105, 120, 150, 180, 240];
     openDrawer({
       title: id ? "Modifier la prestation" : "Nouvelle prestation",
@@ -1314,7 +1314,7 @@
             <label class="field full"><span>Titre de la page</span><input type="text" id="c-seot" maxlength="80" value="${esc(c.seo_title || "")}"><span class="counter" data-count="c-seot" data-max="60"></span></label>
             <label class="field full"><span>Description</span><textarea id="c-seod" maxlength="220">${esc(c.seo_description || "")}</textarea><span class="counter" data-count="c-seod" data-max="155"></span></label>
             <p class="full muted" style="margin:0;font-size:13px">Conseil : mentionnez votre ville et vos prestations (« coach de padel à Toulouse, cours individuels »). Google affiche environ 60 caractères de titre et 155 de description.</p></div>`)}
-          <div class="savebar"><span>Pensez à enregistrer vos modifications.</span><button type="submit" class="btn btn--primary">Enregistrer</button></div>
+          <div class="savebar"><span>Pensez à enregistrer vos modifications.</span><span class="savebar__btns"><button type="button" class="btn savebar__cancel" id="site-cancel">Annuler</button><button type="submit" class="btn btn--primary">Enregistrer</button></span></div>
         </form>
       </div>`;
   }
@@ -1394,6 +1394,7 @@
       b.remove();
     });
     page.querySelector("#site-form").addEventListener("submit", saveSite);
+    page.querySelector("#site-cancel").addEventListener("click", () => { render(); toast("Modifications annulées : votre site est inchangé."); });
     page.addEventListener("change", onGalleryChange);
   };
 

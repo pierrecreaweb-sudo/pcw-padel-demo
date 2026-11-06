@@ -318,6 +318,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .site-toc a { padding: 8px 10px; border-radius: 8px; color: var(--muted); text-decoration: none; font-weight: 600; font-size: 14px; }
 .site-toc a:hover { background: var(--panel); color: var(--ink); }
 .site-sections { display: grid; gap: 16px; min-width: 0; grid-template-columns: minmax(0, 1fr); }
+.savebar__btns { display: flex; gap: 8px; align-items: center; }
+.savebar__cancel { background: transparent; color: var(--nav-ink); border: 1px solid rgba(255, 255, 255, .35); }
+.savebar__cancel:hover { background: rgba(255, 255, 255, .12); }
 .savebar { position: sticky; bottom: 12px; z-index: 5; display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border-radius: 12px; background: var(--nav); color: var(--nav-ink); box-shadow: var(--shadow); }
 @media (max-width: 860px) {
   .site-layout { grid-template-columns: 1fr; gap: 12px; }
