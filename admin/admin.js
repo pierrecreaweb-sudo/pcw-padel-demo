@@ -106,7 +106,7 @@
     Object.assign(S, { services, locations, rules, timeOff, players, testimonials, site, media, messages: messages.reverse() });
     S.reviews = await S.api.list("reviews", id, "created_at").catch(() => []);
     const opt = (t, o) => S.api.list(t, id, o).catch(() => []);
-    [S.stages, S.stageRegs, S.packs, S.playerPacks, S.goals, S.skillRatings, S.pMessages] = await Promise.all([opt("stages", "starts_at"), opt("stage_registrations", "created_at"), opt("packs", "position,name"), opt("player_packs", "created_at"), opt("player_goals", "created_at"), opt("player_skill_ratings", "rated_at"), opt("player_messages", "created_at")]);
+    [S.extra, S.stages, S.stageRegs, S.packs, S.playerPacks, S.goals, S.skillRatings, S.pMessages] = await Promise.all([opt("availability_slots", "day,start_time"), opt("stages", "starts_at"), opt("stage_registrations", "created_at"), opt("packs", "position,name"), opt("player_packs", "created_at"), opt("player_goals", "created_at"), opt("player_skill_ratings", "rated_at"), opt("player_messages", "created_at")]);
     await reloadCalendar();
     S.allBookings = null;
     await loadBookings();
@@ -357,13 +357,19 @@
     }).join("");
   }
 
+  // Plages ouvertes à la réservation un jour donné : semaine type (si affichée) + créneaux ajoutés pour cette date.
+  const templateOn = () => S.coach.use_weekly_template !== false;
+  const dayWindows = (d) => {
+    const wd = P.isoWeekday(d);
+    return (templateOn() ? S.rules.filter((r) => r.weekday === wd) : []).concat((S.extra || []).filter((x) => x.day === d));
+  };
   function weekStats(mondayYmd) {
     const sunday = P.addDays(mondayYmd, 7);
     const inWeek = S.bookings.filter((b) => { const d = dayOf(b.starts_at); return d >= mondayYmd && d < sunday && b.status !== "cancelled"; });
     let avail = 0;
     for (let i = 0; i < 7; i++) {
       const d = P.addDays(mondayYmd, i), wd = P.isoWeekday(d);
-      for (const r of S.rules.filter((r) => r.weekday === wd)) {
+      for (const r of dayWindows(d)) {
         const [h0, m0] = r.start_time.split(":").map(Number), [h1, m1] = r.end_time.split(":").map(Number);
         avail += (h1 * 60 + m1) - (h0 * 60 + m0);
       }
@@ -653,7 +659,7 @@
     const t = todayYmd();
     // Plage horaire affichée : couvre disponibilités et séances de la semaine.
     let h0 = 8, h1 = 21;
-    for (const r of S.rules) { h0 = Math.min(h0, +r.start_time.slice(0, 2)); h1 = Math.max(h1, Math.ceil(+r.end_time.slice(0, 2) + +r.end_time.slice(3, 5) / 60)); }
+    for (const r of S.rules.concat(S.extra || [])) { h0 = Math.min(h0, +r.start_time.slice(0, 2)); h1 = Math.max(h1, Math.ceil(+r.end_time.slice(0, 2) + +r.end_time.slice(3, 5) / 60)); }
     const weekB = S.bookings.filter((b) => days.includes(dayOf(b.starts_at)) && b.status !== "cancelled");
     for (const b of weekB) {
       const p0 = P.tzParts(new Date(b.starts_at), tz()), p1 = P.tzParts(new Date(b.ends_at), tz());
@@ -668,7 +674,7 @@
 
     const cols = days.map((d) => {
       const wd = P.isoWeekday(d);
-      const avail = S.rules.filter((r) => r.weekday === wd).map((r) => {
+      const avail = dayWindows(d).map((r) => {
         const [a, b] = r.start_time.split(":").map(Number), [c, e] = r.end_time.split(":").map(Number);
         return `<div class="cal__avail" style="top:${y(a, b)}px;height:${y(c, e) - y(a, b)}px"></div>`;
       }).join("");
@@ -720,7 +726,11 @@
 
       <div class="grid grid--2" style="margin-top:20px">
         <section class="card"><h2>Disponibilités de la semaine type <small>répétées chaque semaine</small></h2>
-          <div class="weekday-rules">${[1, 2, 3, 4, 5, 6, 7].map((wd) => {
+          ${S.api.mode === "demo" ? "" : `<label class="switch" style="margin:0 0 12px"><span><b>Afficher ma semaine type aux joueurs</b><small>${templateOn()
+            ? "Activé : les joueurs réservent sur ces plages, chaque semaine."
+            : "Désactivé : les joueurs ne réservent que sur les créneaux que vous ajoutez semaine par semaine (carte ci-dessous). Vous recevez un rappel le vendredi à 20 h."}</small></span>
+            <input type="checkbox" id="tpl-on" ${templateOn() ? "checked" : ""}></label>`}
+          <div class="weekday-rules" ${templateOn() ? "" : 'style="opacity:.55"'}>${[1, 2, 3, 4, 5, 6, 7].map((wd) => {
             const rs = S.rules.filter((r) => r.weekday === wd);
             return `<div class="wd"><div class="wd__name">${P.cap(P.DAYS[wd - 1])}</div><div class="wd__ranges">${rs.length ? rs.map((r) => `
               <span class="range">${P.hmLabel(r.start_time.slice(0, 5))} – ${P.hmLabel(r.end_time.slice(0, 5))}${r.location_id && locById(r.location_id) ? ` <span class="muted" style="font-weight:500">· ${esc(locById(r.location_id).name)}</span>` : ""}
@@ -745,7 +755,8 @@
             <label class="field full"><span>Motif <small>(visible par vous seul)</small></span><input type="text" id="o-reason" placeholder="Vacances, tournoi, formation…"></label>
             <div class="full"><button class="btn btn--dark" type="submit">Bloquer cette période</button></div>
           </form></section>
-      </div>`;
+      </div>
+      ${extraSlotsCard()}`;
   }
   AFTER.agenda = (page) => {
     page.querySelector("#rule-form").addEventListener("submit", async (e) => {
@@ -759,6 +770,25 @@
         const r = await S.api.insert("availability_rules", { coach_id: S.coach.id, weekday: wd, start_time: s + ":00", end_time: en + ":00", location_id: loc });
         S.rules.push(r); S.rules.sort((a, b) => a.weekday - b.weekday || a.start_time.localeCompare(b.start_time));
         toast("Disponibilité ajoutée"); render();
+      } catch (err) { toast(errMsg(err)); }
+    });
+    if (page.querySelector("#tpl-on")) page.querySelector("#tpl-on").addEventListener("change", async (e) => {
+      const on = e.target.checked;
+      try { Object.assign(S.coach, await S.api.updateCoach(S.coach.id, { use_weekly_template: on })); toast(on ? "Semaine type affichée aux joueurs" : "Semaine type masquée : ajoutez vos créneaux semaine par semaine"); render(); }
+      catch (err) { e.target.checked = !on; toast(errMsg(err)); }
+    });
+    if (page.querySelector("#extra-form")) page.querySelector("#extra-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const d = page.querySelector("#x-day").value, a = page.querySelector("#x-start").value, b = page.querySelector("#x-end").value;
+      const loc = page.querySelector("#x-loc") ? page.querySelector("#x-loc").value || null : null;
+      if (!d || !a || !b) return toast("Indiquez la date et les horaires.");
+      if (b <= a) return toast("L'heure de fin doit être après l'heure de début.");
+      if (d < todayYmd()) return toast("Choisissez une date à venir.");
+      if ((S.extra || []).some((x) => x.day === d && a < x.end_time.slice(0, 5) && x.start_time.slice(0, 5) < b)) return toast("Ce créneau chevauche un créneau déjà ajouté ce jour-là.");
+      try {
+        const r = await S.api.insert("availability_slots", { coach_id: S.coach.id, day: d, start_time: a + ":00", end_time: b + ":00", location_id: loc });
+        S.extra = (S.extra || []).concat(r);
+        toast("Créneau ajouté"); render();
       } catch (err) { toast(errMsg(err)); }
     });
     page.querySelector("#off-form").addEventListener("submit", async (e) => {
@@ -776,6 +806,31 @@
       } catch (err) { toast(errMsg(err)); }
     });
   };
+
+  function extraSlotsCard() {
+    if (S.api.mode === "demo") return "";
+    const t = todayYmd();
+    const list = (S.extra || []).filter((x) => x.day >= t).sort((a, b) => a.day.localeCompare(b.day) || a.start_time.localeCompare(b.start_time));
+    const byDay = {};
+    for (const x of list) (byDay[x.day] = byDay[x.day] || []).push(x);
+    const nextMon = P.addDays(P.mondayOf(t), 7);
+    const nextWeekFilled = (S.extra || []).some((x) => x.day >= nextMon && x.day <= P.addDays(nextMon, 6));
+    const rows = Object.keys(byDay).map((d) => `<div class="wd"><div class="wd__name">${esc(P.cap(P.fmtDate(P.zonedToUtc(d, "12:00", tz()), tz(), "short")))}</div><div class="wd__ranges">${byDay[d].map((r) => `
+      <span class="range">${P.hmLabel(r.start_time.slice(0, 5))} – ${P.hmLabel(r.end_time.slice(0, 5))}${r.location_id && locById(r.location_id) ? ` <span class="muted" style="font-weight:500">· ${esc(locById(r.location_id).name)}</span>` : ""}
+      <button type="button" data-action="del-extra" data-id="${r.id}" aria-label="Supprimer ce créneau">${icon("x")}</button></span>`).join("")}</div></div>`).join("");
+    return `<section class="card" style="margin-top:20px" id="extra-card"><h2>Créneaux ajoutés semaine par semaine <small>${templateOn() ? "en plus de votre semaine type" : "seuls ces créneaux sont réservables"}</small></h2>
+      ${!templateOn() && !nextWeekFilled ? `<p class="muted" style="margin:0 0 12px;color:var(--warn)">Aucun créneau n'est encore prévu la semaine prochaine (du ${esc(P.fmtDate(P.zonedToUtc(nextMon, "12:00", tz()), tz(), "short"))}).</p>` : ""}
+      <div class="weekday-rules">${rows || `<div class="empty" style="padding:12px">Aucun créneau à venir.</div>`}</div>
+      <form class="inline-form" id="extra-form" style="margin-top:14px">
+        <label class="field"><span>Date</span><input type="date" id="x-day" value="${P.addDays(t, 1)}" min="${t}"></label>
+        <label class="field"><span>De</span><input type="time" id="x-start" value="09:00" step="900"></label>
+        <label class="field"><span>À</span><input type="time" id="x-end" value="12:00" step="900"></label>
+        ${S.locations.length ? `<label class="field"><span>Lieu</span><select id="x-loc"><option value="">Tous</option>${S.locations.map((l) => `<option value="${l.id}">${esc(l.name)}</option>`).join("")}</select></label>` : ""}
+        <button class="btn btn--dark" type="submit">Ajouter</button>
+      </form>
+      <div class="btn-row" style="margin-top:12px"><button type="button" class="btn" data-action="copy-week" ${S.rules.length ? "" : "disabled"}>Copier ma semaine type sur la semaine prochaine</button></div>
+      <p class="muted" style="margin:10px 0 0;font-size:13px">${S.rules.length ? "Le bouton reprend les plages de votre semaine type pour la semaine du " + esc(P.fmtDate(P.zonedToUtc(nextMon, "12:00", tz()), tz(), "short")) + ", sans l'afficher aux autres semaines." : "Ajoutez d'abord des plages à votre semaine type pour pouvoir les copier."}</p></section>`;
+  }
 
   // ========================================================== prestations ===
   function viewServices() {
@@ -2961,7 +3016,7 @@
     const wd = P.isoWeekday(day);
     const blocks = [...S.timeOff, ...S.busy].map((o) => [+new Date(o.starts_at), +new Date(o.ends_at)]);
     let total = 0;
-    for (const r of S.rules.filter((x) => x.weekday === wd)) {
+    for (const r of dayWindows(day)) {
       const a = +P.zonedToUtc(day, r.start_time.slice(0, 5), tz()), b = +P.zonedToUtc(day, r.end_time.slice(0, 5), tz());
       let m = (b - a) / 6e4;
       for (const [s, e] of blocks) { const o = Math.min(b, e) - Math.max(a, s); if (o > 0) m -= o / 6e4; }
@@ -3246,6 +3301,20 @@
       catch { /* message déjà affiché */ }
     },
     week: (el) => { const d = +el.dataset.delta; S.ui.weekStart = d === 0 ? P.mondayOf(todayYmd()) : P.addDays(S.ui.weekStart, d); render(); },
+    "del-extra": async (el) => { try { await S.api.remove("availability_slots", el.dataset.id); S.extra = (S.extra || []).filter((r) => r.id !== el.dataset.id); toast("Créneau supprimé"); render(); } catch (e) { toast(errMsg(e)); } },
+    "copy-week": async () => {
+      const mon = P.addDays(P.mondayOf(todayYmd()), 7);
+      try {
+        let n = 0;
+        for (const r of S.rules) {
+          const d = P.addDays(mon, r.weekday - 1);
+          if ((S.extra || []).some((x) => x.day === d && x.start_time === r.start_time && x.end_time === r.end_time)) continue;
+          S.extra = (S.extra || []).concat(await S.api.insert("availability_slots", { coach_id: S.coach.id, day: d, start_time: r.start_time, end_time: r.end_time, location_id: r.location_id || null }));
+          n++;
+        }
+        toast(n ? `${n} créneau${n > 1 ? "x" : ""} ajouté${n > 1 ? "s" : ""} pour la semaine prochaine` : "Ces créneaux existent déjà"); render();
+      } catch (e) { toast(errMsg(e)); }
+    },
     "del-rule": async (el) => { try { await S.api.remove("availability_rules", el.dataset.id); S.rules = S.rules.filter((r) => r.id !== el.dataset.id); toast("Plage supprimée"); render(); } catch (e) { toast(errMsg(e)); } },
     "del-off": async (el) => { try { await S.api.remove("time_off", el.dataset.id); S.timeOff = S.timeOff.filter((r) => r.id !== el.dataset.id); toast("Absence supprimée"); render(); } catch (e) { toast(errMsg(e)); } },
     "edit-stage": (el) => stageDrawer(el.dataset.id),
