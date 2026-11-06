@@ -189,6 +189,7 @@
     const shown = items.slice(0, GAL_PREVIEW);
     $("#gal-count").textContent = `${items.length} photo${items.length > 1 ? "s" : ""}`;
     const cls = tileClasses(shown.length);
+    $("#gallery").dataset.n = String(shown.length);
     $("#gallery").innerHTML = shown.map((g, i) => `
       <button type="button" class="gal-item ${cls[i]}" data-photo="${i}" aria-label="Agrandir : ${esc(g.caption || "photo " + (i + 1))}">
         ${g.url ? `<img src="${esc(g.url)}" alt="${esc(g.caption || "")}" loading="lazy"${P.cropStyle(g.crop)}>` : placeholder(g.caption || "Photo de cours")}
