@@ -475,3 +475,12 @@ a { color: inherit; }
 .mobile-menu a:last-child { border-bottom: 0; }
 .mobile-menu a:last-child { color: var(--ball); }
 @media (max-width: 860px) { .burger { display: flex; } .mobile-menu:not([hidden]) { display: block; } .topbar .btn { margin-left: auto; } }
+
+/* Créneaux partagés : places restantes + accompagnants */
+.slot { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; }
+.slot__left { font-size: 11px; font-weight: 600; opacity: .75; line-height: 1.1; }
+.comp { border: 1px solid var(--line, #e3e8e4); border-radius: 12px; padding: 12px; margin: 0; }
+.comp legend { font-weight: 700; padding: 0 6px; }
+.comp__row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; margin-top: 8px; }
+.comp__row input { min-width: 0; }
+@media (max-width: 520px) { .comp__row { grid-template-columns: 1fr; } }

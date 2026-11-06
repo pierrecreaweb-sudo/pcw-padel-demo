@@ -106,7 +106,7 @@
     Object.assign(S, { services, locations, rules, timeOff, players, testimonials, site, media, messages: messages.reverse() });
     S.reviews = await S.api.list("reviews", id, "created_at").catch(() => []);
     const opt = (t, o) => S.api.list(t, id, o).catch(() => []);
-    [S.extra, S.stages, S.stageRegs, S.packs, S.playerPacks, S.goals, S.skillRatings, S.pMessages] = await Promise.all([opt("availability_slots", "day,start_time"), opt("stages", "starts_at"), opt("stage_registrations", "created_at"), opt("packs", "position,name"), opt("player_packs", "created_at"), opt("player_goals", "created_at"), opt("player_skill_ratings", "rated_at"), opt("player_messages", "created_at")]);
+    [S.participants, S.extra, S.stages, S.stageRegs, S.packs, S.playerPacks, S.goals, S.skillRatings, S.pMessages] = await Promise.all([opt("booking_participants", "created_at"), opt("availability_slots", "day,start_time"), opt("stages", "starts_at"), opt("stage_registrations", "created_at"), opt("packs", "position,name"), opt("player_packs", "created_at"), opt("player_goals", "created_at"), opt("player_skill_ratings", "rated_at"), opt("player_messages", "created_at")]);
     await reloadCalendar();
     S.allBookings = null;
     await loadBookings();
@@ -374,7 +374,8 @@
         avail += (h1 * 60 + m1) - (h0 * 60 + m0);
       }
     }
-    const booked = sum(inWeek, minutes);
+    const seen = new Set(), uniq = inWeek.filter((b) => { const k = b.service_id + "|" + b.starts_at; if (seen.has(k)) return false; seen.add(k); return true; });
+    const booked = sum(uniq, minutes);
     return { count: inWeek.length, hours: booked / 60, fill: avail ? Math.min(100, Math.round((booked / avail) * 100)) : 0 };
   }
 
@@ -514,6 +515,7 @@
           <dt>Horaire</dt><dd class="num">${hm(b.starts_at)} – ${hm(b.ends_at)} (${P.fmtDuration(minutes(b))})</dd>
           <dt>Lieu</dt><dd>${loc ? esc(loc.name) : "<span class='muted'>Non précisé</span>"}</dd>
           ${b.party_size > 1 ? `<dt>Joueurs</dt><dd>${b.party_size}</dd>` : ""}
+          ${(() => { const cs = (S.participants || []).filter((x) => x.booking_id === b.id); return cs.length ? `<dt>Accompagnants</dt><dd>${cs.map((x) => `<span style="user-select:all">${esc(x.first_name ? x.first_name + " · " : "")}${esc(x.email)}</span>`).join("<br>")}<br><small class="muted">Prévenus par email (confirmation, rappel, changement, annulation).</small></dd>` : ""; })()}
           <dt>Tarif</dt><dd>${euros(b.price_cents)}</dd>
         </dl>
         <section class="card" style="padding:14px"><h2 style="font-size:15px;margin-bottom:8px">${esc(fullName(p))} ${p.level ? `<small>${esc(p.level)}</small>` : ""}</h2>
@@ -871,6 +873,7 @@
         <label class="field"><span>Niveau</span><input type="text" id="sv-level" maxlength="40" value="${esc(s.level || "")}" placeholder="Tous niveaux"></label>
         <label class="field"><span>Lieu</span><select id="sv-loc"><option value="">Selon mes disponibilités</option>${S.locations.map((l) => `<option value="${l.id}" ${l.id === s.location_id ? "selected" : ""}>${esc(l.name)}</option>`).join("")}</select></label>
         <label class="field"><span>Couleur dans l'agenda</span><span class="color-row"><input type="color" id="sv-color" value="${esc(s.color || "#1F6FEB")}"></span></label>
+        <label class="switch full" id="sv-shared-row"><span><b>Créneau partagé</b><small>Plusieurs réservations sur le même créneau, jusqu'à ce qu'il soit complet (pour duo, trio, à 4).</small></span><input type="checkbox" id="sv-shared" ${s.shared_slot ? "checked" : ""}></label>
         <label class="switch full"><span><b>Visible sur le site</b><small>Décochez pour la masquer sans la supprimer.</small></span><input type="checkbox" id="sv-active" ${s.active ? "checked" : ""}></label>
       </form>`,
       foot: `<button class="btn btn--primary" data-action="save-service" data-id="${id || ""}">Enregistrer</button>${id ? `<button class="btn btn--danger" data-action="ask-delete-service" data-id="${id}">Supprimer</button>` : ""}`,
@@ -884,7 +887,7 @@
     if (!(price >= 0)) return toast("Prix invalide.");
     const cap = Math.min(12, Math.max(1, parseInt(v("sv-cap").value, 10) || 1));
     const row = { name, description: v("sv-desc").value.trim() || null, duration_minutes: +v("sv-dur").value, price_cents: price,
-      capacity: cap, level: v("sv-level").value.trim() || null, location_id: v("sv-loc").value || null, color: v("sv-color").value, active: v("sv-active").checked };
+      capacity: cap, level: v("sv-level").value.trim() || null, location_id: v("sv-loc").value || null, color: v("sv-color").value, active: v("sv-active").checked, shared_slot: cap > 1 && v("sv-shared").checked };
     try {
       if (id) { const r = await S.api.update("services", id, row); S.services[S.services.findIndex((s) => s.id === id)] = r; }
       else { const r = await S.api.insert("services", { ...row, coach_id: S.coach.id, position: S.services.length }); S.services.push(r); }

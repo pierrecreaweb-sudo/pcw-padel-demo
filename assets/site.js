@@ -10,7 +10,7 @@
 
   const state = {
     api: null, slug: null, site: null, tz: "Europe/Paris",
-    step: 1, service: null, slots: [], byDay: new Map(), day: null, slot: null, party: 1,
+    step: 1, service: null, slots: [], byDay: new Map(), day: null, slot: null, party: 1, companions: [],
     loadingSlots: false, error: "", submitting: false, result: null,
     form: { first_name: "", last_name: "", email: "", phone: "", level: "", message: "", accept: false },
   };
@@ -390,12 +390,19 @@
         const list = daySlots.filter((s) => test(P.tzParts(new Date(s.starts_at), state.tz).h));
         if (!list.length) return "";
         return `<div class="slot-group"><h4>${label}</h4><div class="slots">${list.map((s) =>
-          `<button type="button" class="slot" data-slot="${esc(s.starts_at)}" aria-pressed="${!!(state.slot && state.slot.starts_at === s.starts_at)}">${P.fmtTime(s.starts_at, state.tz)}</button>`).join("")}</div></div>`;
+          `<button type="button" class="slot" data-slot="${esc(s.starts_at)}" aria-pressed="${!!(state.slot && state.slot.starts_at === s.starts_at)}">${P.fmtTime(s.starts_at, state.tz)}${state.service.shared_slot && s.spots_left != null ? `<small class="slot__left">${s.spots_left} place${s.spots_left > 1 ? "s" : ""}</small>` : ""}</button>`).join("")}</div></div>`;
       }).join("")}
       ${selLoc ? `<p class="slot-loc">Lieu : <strong>${esc(selLoc.name)}</strong>${selLoc.address ? ", " + esc(selLoc.address) : ""}</p>` : ""}
       ${state.error ? `<p class="alert alert--err" role="alert">${esc(state.error)}</p>` : ""}
       <div class="actions"><button type="button" class="btn btn--ghost" data-go="1">Retour</button>
       <button type="button" class="btn btn--brand" data-go="3" ${state.slot ? "" : "disabled"}>Continuer</button></div>`;
+  }
+
+  function partyMax() {
+    const s = state.service;
+    if (!s) return 1;
+    const left = s.shared_slot && state.slot && state.slot.spots_left != null ? state.slot.spots_left : s.capacity;
+    return Math.max(1, Math.min(s.capacity, left));
   }
 
   function step3() {
@@ -409,12 +416,16 @@
         <div class="field"><label for="f-phone">Téléphone</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" required value="${esc(f.phone)}" placeholder="06 12 34 56 78"></div>
         <div class="field"><label for="f-level">Votre niveau</label><select id="f-level" name="level">
           <option value="">Choisir</option>${levels.map((l) => `<option ${f.level === l ? "selected" : ""}>${l}</option>`).join("")}</select></div>
-        ${s.capacity > 1 ? `<div class="field"><label for="f-party">Nombre de joueurs</label><select id="f-party" name="party">
-          ${Array.from({ length: s.capacity }, (_, i) => `<option value="${i + 1}" ${state.party === i + 1 ? "selected" : ""}>${i + 1}</option>`).join("")}</select></div>` : ""}
+        ${s.capacity > 1 ? `<div class="field"><label for="f-party">Nombre de joueurs (vous compris)</label><select id="f-party" name="party">
+          ${Array.from({ length: partyMax() }, (_, i) => `<option value="${i + 1}" ${state.party === i + 1 ? "selected" : ""}>${i + 1}</option>`).join("")}</select>
+          ${s.shared_slot ? `<small class="muted">${state.slot && state.slot.spots_left != null ? `Il reste ${state.slot.spots_left} place${state.slot.spots_left > 1 ? "s" : ""} sur ce créneau. ` : ""}Vous venez seul(e) ? D'autres joueurs peuvent rejoindre le même créneau.</small>` : ""}</div>` : ""}
+        ${s.shared_slot && state.party > 1 ? `<fieldset class="field full comp"><legend>Les personnes qui viennent avec vous <span class="muted" style="font-weight:500">(facultatif)</span></legend>
+          <p class="muted" style="margin:0 0 8px;font-size:13px">Indiquez leur email pour qu'elles reçoivent la confirmation, le rappel et les changements de cette séance.</p>
+          ${Array.from({ length: state.party - 1 }, (_, i) => `<div class="comp__row"><input name="comp_first_${i}" aria-label="Prénom du joueur ${i + 2}" placeholder="Prénom" maxlength="60" value="${esc((state.companions[i] || {}).first_name || "")}"><input name="comp_email_${i}" type="email" aria-label="Email du joueur ${i + 2}" placeholder="email@exemple.fr" maxlength="120" value="${esc((state.companions[i] || {}).email || "")}"></div>`).join("")}</fieldset>` : ""}
         <div class="field full"><label for="f-msg">Un objectif pour cette séance ? <span class="muted" style="font-weight:500">(facultatif)</span></label>
           <textarea id="f-msg" name="message" maxlength="1000" placeholder="Ex. : travailler la sortie de vitre, préparer un tournoi…">${esc(f.message)}</textarea></div>
         <label class="check full"><input type="checkbox" id="f-accept" name="accept" ${f.accept ? "checked" : ""}>
-          <span>J'accepte les <a href="${esc(withSlug("conditions.html"))}" target="_blank" rel="noopener">conditions de réservation</a> (annulation gratuite jusqu'à ${state.site.coach.cancel_hours} h avant) et l'utilisation de mes coordonnées pour organiser la séance.</span></label>
+          <span>J'accepte les <a href="${esc(withSlug("conditions.html"))}" target="_blank" rel="noopener">conditions de réservation</a> (annulation gratuite jusqu'à ${state.site.coach.cancel_hours} h avant) et l'utilisation de mes coordonnées pour organiser la séance.${s.shared_slot && state.party > 1 ? " Je confirme que les personnes dont j'indique l'email sont d'accord pour recevoir les informations de cette séance." : ""}</span></label>
         ${state.error ? `<p class="alert alert--err full" role="alert">${esc(state.error)}</p>` : ""}
         <div class="actions full"><button type="button" class="btn btn--ghost" data-go="2">Retour</button>
           <button type="submit" class="btn btn--ball" ${state.submitting ? "disabled" : ""}>${state.submitting ? "Réservation…" : state.site.coach.auto_confirm ? "Confirmer la réservation" : "Envoyer ma demande"}</button></div>
@@ -516,12 +527,19 @@
       message: (fd.get("message") || "").trim(), accept: fd.get("accept") === "on",
     });
     if (fd.get("party")) state.party = Number(fd.get("party"));
+    state.party = Math.min(state.party || 1, partyMax());
+    const comps = [];
+    for (let i = 0; i < Math.max(0, state.party - 1); i++) {
+      comps.push({ first_name: String(fd.get("comp_first_" + i) || "").trim(), email: String(fd.get("comp_email_" + i) || "").trim() });
+    }
+    state.companions = comps;
   }
   function validate() {
     const f = state.form;
     if (!f.first_name) return ["f-first", "Indiquez votre prénom."];
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) return ["f-email", "Vérifiez votre adresse email."];
     if (!/^\+?[0-9]{9,15}$/.test(f.phone.replace(/[^0-9+]/g, ""))) return ["f-phone", "Vérifiez votre numéro de téléphone (ex. 06 12 34 56 78)."];
+    for (const c of state.companions || []) if (c.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c.email)) return ["f-first", "Vérifiez l'email de la personne qui vous accompagne : " + c.email];
     if (!f.accept) return ["f-accept", "Cochez la case pour accepter les conditions de réservation."];
     return null;
   }
@@ -535,7 +553,7 @@
     renderBooking();
     try {
       state.result = await state.api.book(state.slug, {
-        service_id: state.service.id, starts_at: state.slot.starts_at, party_size: state.party, ...state.form,
+        service_id: state.service.id, starts_at: state.slot.starts_at, party_size: state.party, companions: (state.companions || []).filter((c) => c.email), ...state.form,
       });
       state.step = 4;
     } catch (e) {

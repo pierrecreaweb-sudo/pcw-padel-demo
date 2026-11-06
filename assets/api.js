@@ -85,6 +85,7 @@
         p_slug: slug, p_service_id: b.service_id, p_starts_at: b.starts_at, p_first_name: b.first_name,
         p_last_name: b.last_name, p_email: b.email, p_phone: b.phone, p_level: b.level || null,
         p_message: b.message || null, p_party_size: b.party_size || 1,
+        p_companions: (b.companions || []).map((c) => ({ first_name: c.first_name || "", email: c.email })),
       })),
       getBooking: async (token) => unwrap(await sb.rpc("public_get_booking", { p_token: token })),
       cancelBooking: async (token) => unwrap(await sb.rpc("public_cancel_booking", { p_token: token })),
