@@ -65,7 +65,7 @@
     <p>Votre site est créé en <b>brouillon</b> : personne ne le voit tant que PCW ne l'a pas mis en ligne avec vous. Prenez le temps de tout remplir.</p>
     <ul class="check">
       <li><b>Mon site</b> : votre texte de présentation, vos photos (vous pouvez les recadrer), vos couleurs, vos liens Instagram et WhatsApp, votre téléphone. Les pages légales reprennent votre nom, votre SIRET et votre email : vérifiez-les.</li>
-      <li><b>Prestations et lieux</b> : pour chaque séance, son nom, sa durée, le nombre de joueurs, le niveau, le prix. Ajoutez vos clubs avec leur adresse ; si un club prélève une part, indiquez-la (elle sert aux statistiques).</li>
+      <li><b>Prestations et lieux</b> : pour chaque séance, son nom, sa durée, le nombre de joueurs, le niveau, le prix. Ajoutez vos clubs avec leur adresse ; si un club prélève une part, indiquez-la (elle sert aux statistiques). Pour un duo, un trio ou un cours à 4, voyez « Cours à plusieurs » plus bas : le prix se donne <b>par personne</b>.</li>
       <li><b>Agenda</b> : dans « Disponibilités de la semaine type », indiquez vos jours et vos heures de coaching, lieu par lieu. Si vos horaires changent chaque semaine, vous pouvez aussi masquer la semaine type et ajouter vos créneaux semaine par semaine (voir « Agenda » plus bas).</li>
       <li><b>Réglages</b> : délai de prévenance, nombre de jours ouverts à la réservation, délai d'annulation gratuite, validation automatique ou non, et l'email qui reçoit vos nouvelles réservations.</li>
       <li><b>Test</b> : réservez une séance vous-même avec un autre email, puis annulez-la par le lien reçu. Vérifiez qu'elle apparaît dans vos Réservations.</li>
@@ -94,6 +94,31 @@
     </ul>
     <p>Pour ajouter des créneaux, utilisez la carte <b>Créneaux ajoutés semaine par semaine</b> : choisissez la date, l'heure de début, l'heure de fin et le lieu, puis touchez <span class="k">Ajouter</span>. Le bouton <span class="k">Copier ma semaine type sur la semaine prochaine</span> remplit toute la semaine suivante en un geste. Vous pouvez aussi ouvrir un créneau exceptionnel quand la semaine type est affichée : il s'ajoute à elle.</p>
     <p><b>Le rappel du vendredi</b> : si votre semaine type est masquée et qu'aucun créneau n'est encore prévu pour la semaine suivante, vous recevez le vendredi à 20 h un email (et une notification si vous les avez activées) avec un lien vers l'Agenda. Dès que vous avez ajouté au moins un créneau pour cette semaine-là, le rappel n'est plus envoyé.</p>
+    <h3>Cours à plusieurs (duo, trio, à 4)</h3>
+    <p>Un cours à plusieurs peut rester ouvert tant qu'il n'est pas complet. Exemple : un joueur veut un cours à 4 mais n'a pas ses partenaires. Il réserve seul, et les 3 places restantes restent visibles sur le même créneau pour d'autres joueurs.</p>
+    <h4>Le régler dans Prestations</h4>
+    <ul>
+      <li>Ouvrez la prestation (ou créez-la) et mettez « Joueurs maximum » à 2, 3 ou 4.</li>
+      <li><b>Créneau partagé</b> : coché par défaut pour une nouvelle prestation. Si vous le décochez, le créneau est pris dès la première réservation.</li>
+      <li><b>Prix</b> : indiquez le prix <b>par personne</b>. Le total dépend du nombre de joueurs.</li>
+      <li>Un cours individuel (1 joueur) n'est jamais partagé.</li>
+    </ul>
+    <h4>Le filtre de niveau</h4>
+    <p>Pour que des joueurs de niveaux très différents ne se retrouvent pas ensemble, la prestation a un <b>Filtre de niveau</b>. L'échelle est : Débutant, P25, P50, P100, P250, P500, P1000 et plus. Réglage par défaut : <b>1 niveau d'écart maximum</b>.</p>
+    <ul>
+      <li>P25 avec P50 : accepté. P100 avec P250 : accepté.</li>
+      <li>P50 avec P250 : refusé (2 niveaux d'écart).</li>
+      <li>Vous pouvez choisir « Même niveau uniquement », « 1 niveau », « 2 niveaux » ou « Aucun filtre ».</li>
+    </ul>
+    <p>Le joueur indique son niveau avant de voir les créneaux. Il ne voit que ceux qui lui conviennent, avec le niveau du groupe déjà inscrit et le nombre de places restantes. « Je ne sais pas » n'est pas accepté pour ces cours.</p>
+    <h4>Les personnes qui viennent avec le joueur</h4>
+    <p>Le joueur choisit le nombre de personnes (lui compris), dans la limite des places libres. Il peut indiquer le prénom et l'email de chacune. Elles reçoivent alors la confirmation, le rappel, le déplacement ou l'annulation de la séance. Le joueur confirme qu'elles sont d'accord. Le niveau demandé est celui de la personne qui réserve : il est supposé identique pour ses accompagnants.</p>
+    <h4>Ce que vous voyez</h4>
+    <ul>
+      <li>Chaque joueur a sa propre réservation. Ouvrez-en une pour voir ses accompagnants (« Accompagnants »).</li>
+      <li>Si vous annulez ou déplacez un joueur, ses accompagnants sont prévenus eux aussi.</li>
+      <li>Si vous ajoutez une réservation vous-même dans l'Agenda, le filtre de niveau ne s'applique pas : vous gardez la main.</li>
+    </ul>
     <h3>Messages</h3>
     <p>Ce que vos visiteurs vous écrivent depuis le formulaire de contact. Vous les recevez aussi par email. Répondez directement par email, appel ou WhatsApp depuis la fiche du message.</p>
     <h3>Joueurs</h3>
@@ -157,6 +182,7 @@
       <li>Un <b>email de confirmation</b> avec un fichier à ajouter à leur agenda et un lien « Gérer ma réservation » pour annuler dans le délai que vous avez fixé.</li>
       <li>Un <b>rappel la veille</b> de la séance.</li>
       <li>Un email si vous <b>déplacez ou annulez</b> la séance.</li>
+      <li>Pour un cours à plusieurs, les <b>accompagnants</b> dont l'email a été indiqué reçoivent aussi la confirmation, le rappel, le déplacement et l'annulation (sans fichier agenda).</li>
       <li>Une <b>demande d'avis</b> environ 2 heures après la séance.</li>
     </ul>
     <p>Vous, vous recevez un email à chaque nouvelle réservation, annulation ou message.</p>
@@ -165,7 +191,8 @@
   <section id="faq">
     <h2>7. Questions fréquentes</h2>
     <details><summary>Je ne reçois pas l'email d'invitation ou de connexion</summary><p>Regardez dans les courriers indésirables, puis demandez à PCW de vous le renvoyer (c'est instantané). Vérifiez que l'adresse donnée à PCW est la bonne.</p></details>
-    <details><summary>Comment réserver un cours à plusieurs (duo, trio, à 4) ?</summary><p>Dans Prestations, ouvrez la prestation et cochez « Créneau partagé » (avec « Joueurs maximum » à 2, 3 ou 4). Un joueur peut alors réserver seul : les places restantes restent visibles sur le même créneau, et d'autres joueurs peuvent les prendre jusqu'à ce qu'il soit complet. Le joueur choisit le nombre de personnes qui viennent avec lui. Il peut indiquer leur email : elles reçoivent la confirmation, le rappel, et les changements ou l'annulation. Dans la fiche d'une réservation, vous voyez ces accompagnants. Le prix de la prestation est un prix par personne. Vous pouvez aussi régler un <b>filtre de niveau</b> (écart maximum entre les joueurs, par exemple 1 niveau) : le joueur indique son niveau et ne voit que les créneaux adaptés ; un P250 ne se retrouve pas avec des P50.</p></details>
+    <details><summary>Comment faire un cours à plusieurs (duo, trio, à 4) ?</summary><p>Dans Prestations, mettez « Joueurs maximum » à 2, 3 ou 4 et gardez « Créneau partagé » coché. Les joueurs réservent le même créneau jusqu'à ce qu'il soit complet. Tous les détails sont dans « Cours à plusieurs » (partie 3, Au quotidien).</p></details>
+    <details><summary>Un joueur P250 peut-il se retrouver avec des P50 ?</summary><p>Non, avec le réglage par défaut (1 niveau d'écart maximum). Un P250 peut jouer avec un P100, un P250 ou un P500, mais pas avec un P50. Vous pouvez changer l'écart dans la prestation, rubrique « Filtre de niveau ».</p></details>
     <details><summary>Un élève dit qu'il ne trouve aucun créneau</summary><p>Si vous avez masqué votre semaine type, vérifiez que vous avez bien ajouté des créneaux pour la semaine concernée (carte « Créneaux ajoutés semaine par semaine »). Sinon, vérifiez dans l'Agenda que la semaine type contient des plages pour le lieu et la prestation concernés, que la période n'est pas bloquée, et dans Réglages le délai de prévenance et le nombre de jours ouverts.</p></details>
     <details><summary>Un élève ne peut plus annuler en ligne</summary><p>Le délai d'annulation gratuite est dépassé. Vous pouvez annuler vous-même depuis la réservation si vous le décidez.</p></details>
     <details><summary>Je veux fermer mes réservations quelques jours</summary><p>Bloquez la période dans Agenda, « Absences et créneaux bloqués ». Les créneaux disparaissent du site.</p></details>
