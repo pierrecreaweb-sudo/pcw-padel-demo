@@ -486,3 +486,45 @@ a { color: inherit; }
 .comp__row input { min-width: 0; }
 @media (max-width: 520px) { .comp__row { grid-template-columns: 1fr; } }
 .lvl2 { margin: 6px 0 14px; }
+
+/* ================================================================ effets === */
+/* Apparition au défilement : uniquement si motion.js tourne (classe js-motion). */
+.js-motion .reveal { opacity: 0; transform: translateY(22px); transition: opacity .7s cubic-bezier(.2, .7, .2, 1) var(--mo-delay, 0ms), transform .7s cubic-bezier(.2, .7, .2, 1) var(--mo-delay, 0ms); }
+.js-motion .reveal.in { opacity: 1; transform: none; }
+.js-motion .gal-item.reveal { transform: scale(.96); }
+.js-motion .gal-item.reveal.in { transform: none; }
+
+/* Bandeau : entrée en douceur */
+@keyframes mo-rise { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+@keyframes mo-zoom { from { opacity: 0; transform: scale(.94) translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes mo-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes mo-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mo-pulse { 0%, 70%, 100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); } 85% { box-shadow: 0 0 0 10px rgba(255, 255, 255, .16); } }
+.js-motion .hero .eyebrow { animation: mo-rise .7s .05s both cubic-bezier(.2, .7, .2, 1); }
+.js-motion .hero__title { animation: mo-rise .8s .15s both cubic-bezier(.2, .7, .2, 1); }
+.js-motion .hero__sub { animation: mo-rise .8s .3s both cubic-bezier(.2, .7, .2, 1); }
+.js-motion .hero__ctas { animation: mo-rise .8s .45s both cubic-bezier(.2, .7, .2, 1); }
+.js-motion .hero .stats { animation: mo-rise .8s .6s both cubic-bezier(.2, .7, .2, 1); }
+.js-motion .hero__media { animation: mo-zoom .9s .25s both cubic-bezier(.2, .7, .2, 1); }
+.js-motion .hero__media .shot--main { transform: translateY(var(--par, 0px)); will-change: transform; }
+.js-motion .hero__lines rect, .js-motion .hero__lines line:not(.hero__net) { stroke-dasharray: 1; stroke-dashoffset: 1; animation: mo-draw 2.2s calc(.2s + var(--mo-i, 0) * .18s) forwards ease-out; }
+.js-motion .hero__lines .hero__net { animation: mo-fade 1.4s 1.2s both; }
+.js-motion .hero__ctas .btn--ball { animation: mo-pulse 3.6s 2.4s infinite; }
+
+/* Cartes : relief au survol */
+.svc, .loc, .stage, .quote { transition: transform .25s cubic-bezier(.2, .7, .2, 1), box-shadow .25s ease, border-color .25s ease; }
+@media (hover: hover) {
+  .svc:hover, .loc:hover, .stage:hover, .quote:hover { transform: translateY(-5px); box-shadow: 0 18px 38px rgba(11, 24, 48, .13); border-color: color-mix(in srgb, var(--brand) 25%, var(--line)); }
+  .js-motion .svc.reveal.in:hover, .js-motion .loc.reveal.in:hover, .js-motion .stage.reveal.in:hover, .js-motion .quote.reveal.in:hover { transform: translateY(-5px); }
+  .btn { transition: transform .18s ease, box-shadow .18s ease, background .15s ease; }
+  .btn:not(:disabled):hover { box-shadow: 0 8px 20px rgba(11, 24, 48, .2); }
+  .btn:not(:disabled):active { transform: translateY(0) scale(.98); }
+  .nav a { position: relative; }
+  .nav a::after { content: ""; position: absolute; left: 0; right: 0; bottom: -6px; height: 2px; background: var(--ball); transform: scaleX(0); transform-origin: left; transition: transform .25s ease; }
+  .nav a:hover::after { transform: scaleX(1); }
+}
+
+/* En-tête : ombre une fois la page défilée ; barre de progression */
+.topbar { transition: box-shadow .25s ease; }
+.topbar.is-scrolled { box-shadow: 0 6px 24px rgba(0, 0, 0, .22); }
+.scroll-progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: var(--ball); transform: scaleX(0); transform-origin: left; z-index: 60; pointer-events: none; }
