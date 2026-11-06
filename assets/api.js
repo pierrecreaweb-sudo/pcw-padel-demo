@@ -59,6 +59,8 @@
       getSite: async (slug) => unwrap(await sb.rpc("public_get_site", { p_slug: slug })),
       getSlots: async (slug, serviceId, from, to) =>
         unwrap(await sb.rpc("public_get_slots", { p_slug: slug, p_service_id: serviceId, p_from: from, p_to: to })) || [],
+      getSlotLevels: async (slug, serviceId, from, to) =>
+        unwrap(await sb.rpc("public_get_slot_levels", { p_slug: slug, p_service_id: serviceId, p_from: from, p_to: to })) || [],
       getExtras: async (slug) => unwrap(await sb.rpc("public_get_extras", { p_slug: slug })) || { stages: [], packs: [], online_payment: false },
       registerStage: async (slug, r) => unwrap(await sb.rpc("public_register_stage", {
         p_slug: slug, p_stage_id: r.stage_id, p_first_name: r.first_name, p_last_name: r.last_name || "",
@@ -363,6 +365,7 @@
         save();
         return delay({ ok: true, rating });
       },
+      getSlotLevels: async () => delay([]),
       getSlots: async (slug, serviceId, from, to) => {
         const c = coachBySlug(slug);
         return delay(c ? slotsFor(c, serviceId, from, to) : []);

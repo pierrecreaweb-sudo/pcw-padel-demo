@@ -365,8 +365,17 @@
     const today = P.localYmd(new Date(), state.tz);
     const days = [];
     for (let i = 0; i <= state.site.coach.max_advance_days; i++) days.push(P.addDays(today, i));
-    const total = state.slots.length;
-    if (!total) {
+    const total = visibleSlots().length;
+    const lvlPicker = filtered() ? `<div class="field lvl2"><label for="f-level2">Votre niveau de jeu</label><select id="f-level2"><option value="">Choisir mon niveau</option>${LVLS.map((l) => `<option ${state.form.level === l ? "selected" : ""}>${l}</option>`).join("")}</select>
+      <small class="muted">Ce cours réunit des joueurs de niveaux proches (écart maximum : ${state.service.max_level_gap === 0 ? "même niveau" : state.service.max_level_gap + " niveau" + (state.service.max_level_gap > 1 ? "x" : "")}). Seuls les créneaux adaptés à votre niveau sont proposés.</small></div>` : "";
+    if (filtered() && myRank() < 0) {
+      return `<h3 class="h3">Choisissez votre créneau</h3>${lvlPicker}<div class="actions"><button type="button" class="btn btn--ghost" data-go="1">Retour</button></div>`;
+    }
+    if (!total && filtered() && state.slots.length) {
+      return `<h3 class="h3">Choisissez votre créneau</h3>${lvlPicker}<div class="empty">Aucun créneau libre pour votre niveau pour le moment.<br>Essayez un autre niveau de cours ou contactez directement le coach.</div>
+        <div class="actions"><button type="button" class="btn btn--ghost" data-go="1">Changer de prestation</button><a class="btn btn--brand" href="#contact">Contacter le coach</a></div>`;
+    }
+    if (!state.slots.length) {
       return `<h3 class="h3">Choisissez votre créneau</h3>
         <div class="empty">Aucun créneau libre pour « ${esc(state.service.name)} » dans les ${state.site.coach.max_advance_days} prochains jours.<br>
         Contactez directement le coach pour trouver un horaire.</div>
@@ -378,7 +387,7 @@
     const [y, m] = state.day.split("-").map(Number);
     const monthLabel = `${P.cap(P.MONTHS[m - 1])} ${y}`;
     const selLoc = state.slot ? locById(state.slot.location_id) : null;
-    return `<h3 class="h3">Choisissez votre créneau</h3>
+    return `<h3 class="h3">Choisissez votre créneau</h3>${lvlPicker}
       <div class="day-nav"><span>${monthLabel}</span><span class="muted" style="font-weight:500;font-size:14px">${total} créneau${total > 1 ? "x" : ""} libre${total > 1 ? "s" : ""}</span></div>
       <div class="days" id="days">${days.map((d) => {
         const n = (state.byDay.get(d) || []).length;
@@ -390,7 +399,7 @@
         const list = daySlots.filter((s) => test(P.tzParts(new Date(s.starts_at), state.tz).h));
         if (!list.length) return "";
         return `<div class="slot-group"><h4>${label}</h4><div class="slots">${list.map((s) =>
-          `<button type="button" class="slot" data-slot="${esc(s.starts_at)}" aria-pressed="${!!(state.slot && state.slot.starts_at === s.starts_at)}">${P.fmtTime(s.starts_at, state.tz)}${state.service.shared_slot && s.spots_left != null ? `<small class="slot__left">${s.spots_left} place${s.spots_left > 1 ? "s" : ""}</small>` : ""}</button>`).join("")}</div></div>`;
+          `<button type="button" class="slot" data-slot="${esc(s.starts_at)}" aria-pressed="${!!(state.slot && state.slot.starts_at === s.starts_at)}">${P.fmtTime(s.starts_at, state.tz)}${(() => { const lv = (state.levels || new Map()).get(new Date(s.starts_at).getTime()); return lv ? `<small class="slot__left">${esc(LVLS[lv.min])}${lv.min !== lv.max ? "–" + esc(LVLS[lv.max]) : ""}</small>` : ""; })()}${state.service.shared_slot && s.spots_left != null ? `<small class="slot__left">${s.spots_left} place${s.spots_left > 1 ? "s" : ""}</small>` : ""}</button>`).join("")}</div></div>`;
       }).join("")}
       ${selLoc ? `<p class="slot-loc">Lieu : <strong>${esc(selLoc.name)}</strong>${selLoc.address ? ", " + esc(selLoc.address) : ""}</p>` : ""}
       ${state.error ? `<p class="alert alert--err" role="alert">${esc(state.error)}</p>` : ""}
@@ -415,7 +424,7 @@
         <div class="field"><label for="f-email">Email</label><input id="f-email" name="email" type="email" autocomplete="email" required value="${esc(f.email)}" placeholder="vous@exemple.fr"></div>
         <div class="field"><label for="f-phone">Téléphone</label><input id="f-phone" name="phone" type="tel" autocomplete="tel" required value="${esc(f.phone)}" placeholder="06 12 34 56 78"></div>
         <div class="field"><label for="f-level">Votre niveau</label><select id="f-level" name="level">
-          <option value="">Choisir</option>${levels.map((l) => `<option ${f.level === l ? "selected" : ""}>${l}</option>`).join("")}</select></div>
+          <option value="">Choisir</option>${(filtered() ? LVLS : levels).map((l) => `<option ${f.level === l ? "selected" : ""}>${l}</option>`).join("")}</select></div>
         ${s.capacity > 1 ? `<div class="field"><label for="f-party">Nombre de joueurs (vous compris)</label><select id="f-party" name="party">
           ${Array.from({ length: partyMax() }, (_, i) => `<option value="${i + 1}" ${state.party === i + 1 ? "selected" : ""}>${i + 1}</option>`).join("")}</select>
           ${s.shared_slot ? `<small class="muted">${state.slot && state.slot.spots_left != null ? `Il reste ${state.slot.spots_left} place${state.slot.spots_left > 1 ? "s" : ""} sur ce créneau. ` : ""}Vous venez seul(e) ? D'autres joueurs peuvent rejoindre le même créneau.</small>` : ""}</div>` : ""}
@@ -465,12 +474,24 @@
     }
   }
 
-  // Retire les créneaux déjà passés (ou trop proches, selon le délai du coach) d'une liste restée affichée.
-  function pruneSlots() {
+  // ---- filtre de niveau (cours collectifs)
+  const LVLS = ["Débutant", "P25", "P50", "P100", "P250", "P500", "P1000 et plus"];
+  const filtered = () => !!(state.service && state.service.shared_slot && state.service.max_level_gap != null);
+  const myRank = () => LVLS.indexOf(state.form.level);
+  function compat(s) {
+    if (!filtered()) return true;
+    const r = myRank();
+    if (r < 0) return false;
+    const lv = (state.levels || new Map()).get(new Date(s.starts_at).getTime());
+    if (!lv) return true;
+    return Math.max(lv.max, r) - Math.min(lv.min, r) <= state.service.max_level_gap;
+  }
+  function visibleSlots() {
     const limit = Date.now() + (Number(state.site && state.site.coach && state.site.coach.min_notice_hours) || 0) * 3600000;
-    const keep = (state.slots || []).filter((s) => new Date(s.starts_at).getTime() > limit);
-    if (keep.length === state.slots.length) return false;
-    state.slots = keep;
+    return (state.slots || []).filter((s) => new Date(s.starts_at).getTime() > limit && compat(s));
+  }
+  function regroup() {
+    const keep = visibleSlots();
     state.byDay = new Map();
     for (const s of keep) {
       const d = P.localYmd(new Date(s.starts_at), state.tz);
@@ -479,7 +500,14 @@
     }
     if (state.slot && !keep.some((s) => s.starts_at === state.slot.starts_at)) state.slot = null;
     if (!state.byDay.has(state.day)) state.day = state.byDay.keys().next().value || state.day;
-    return true;
+    return keep;
+  }
+
+  // Retire les créneaux déjà passés (ou trop proches, selon le délai du coach) d'une liste restée affichée.
+  function pruneSlots() {
+    const before = state.byDay ? [...state.byDay.values()].reduce((n, l) => n + l.length, 0) : 0;
+    const keep = regroup();
+    return keep.length !== before;
   }
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "visible" && state.service && state.step >= 2 && state.step < 4 && !state.loadingSlots) loadSlots();
@@ -498,13 +526,15 @@
       state.slots = [];
       state.error = e.message;
     }
-    state.byDay = new Map();
-    for (const s of state.slots) {
-      const d = P.localYmd(new Date(s.starts_at), state.tz);
-      if (!state.byDay.has(d)) state.byDay.set(d, []);
-      state.byDay.get(d).push(s);
+    state.levels = new Map();
+    if (filtered() && state.slots.length) {
+      try {
+        const rows = await state.api.getSlotLevels(state.slug, state.service.id, today, to);
+        for (const r of rows || []) state.levels.set(new Date(r.starts_at).getTime(), { min: r.lvl_min, max: r.lvl_max });
+      } catch { /* sans niveaux : le serveur refusera si besoin */ }
     }
-    if (!state.byDay.has(state.day)) state.day = state.byDay.keys().next().value || today;
+    state.day = null;
+    regroup();
     state.loadingSlots = false;
     renderBooking();
   }
@@ -540,6 +570,8 @@
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) return ["f-email", "Vérifiez votre adresse email."];
     if (!/^\+?[0-9]{9,15}$/.test(f.phone.replace(/[^0-9+]/g, ""))) return ["f-phone", "Vérifiez votre numéro de téléphone (ex. 06 12 34 56 78)."];
     for (const c of state.companions || []) if (c.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(c.email)) return ["f-first", "Vérifiez l'email de la personne qui vous accompagne : " + c.email];
+    if (filtered() && myRank() < 0) return ["f-level", "Indiquez votre niveau précis pour ce cours collectif."];
+    if (filtered() && state.slot && !compat(state.slot)) return ["f-level", "Votre niveau ne correspond pas à ce créneau. Revenez en arrière pour choisir un autre horaire."];
     if (!f.accept) return ["f-accept", "Cochez la case pour accepter les conditions de réservation."];
     return null;
   }
@@ -558,7 +590,7 @@
       state.step = 4;
     } catch (e) {
       state.error = e.message;
-      if (e.code === "SLOT_TAKEN") { state.step = 2; state.submitting = false; await loadSlots(); state.error = e.message; }
+      if (e.code === "SLOT_TAKEN" || e.code === "LEVEL_MISMATCH") { state.step = 2; state.submitting = false; await loadSlots(); state.error = e.message; }
     }
     state.submitting = false;
     renderBooking();
@@ -591,6 +623,7 @@
     });
     document.addEventListener("submit", (ev) => { if (ev.target.id === "book-form") { ev.preventDefault(); submit(); } });
     document.addEventListener("change", (ev) => {
+      if (ev.target.id === "f-level2") { state.form.level = ev.target.value; state.slot = null; state.error = ""; regroup(); renderBooking(); return; }
       if (ev.target.id === "f-party") { state.party = Number(ev.target.value); readForm(); renderBooking(); }
     });
     $("#contact-form").addEventListener("submit", (e) => { e.preventDefault(); sendContact(); });

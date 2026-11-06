@@ -874,6 +874,7 @@
         <label class="field"><span>Lieu</span><select id="sv-loc"><option value="">Selon mes disponibilités</option>${S.locations.map((l) => `<option value="${l.id}" ${l.id === s.location_id ? "selected" : ""}>${esc(l.name)}</option>`).join("")}</select></label>
         <label class="field"><span>Couleur dans l'agenda</span><span class="color-row"><input type="color" id="sv-color" value="${esc(s.color || "#1F6FEB")}"></span></label>
         <label class="switch full" id="sv-shared-row"><span><b>Créneau partagé</b><small>Plusieurs réservations sur le même créneau, jusqu'à ce qu'il soit complet (pour duo, trio, à 4).</small></span><input type="checkbox" id="sv-shared" ${s.shared_slot ? "checked" : ""}></label>
+        <label class="field full"><span>Filtre de niveau (cours à plusieurs)</span><select id="sv-gap"><option value="" ${s.max_level_gap == null ? "selected" : ""}>Aucun filtre</option><option value="0" ${s.max_level_gap === 0 ? "selected" : ""}>Même niveau uniquement</option><option value="1" ${s.max_level_gap === 1 ? "selected" : ""}>Écart de 1 niveau maximum (ex. P50 avec P100)</option><option value="2" ${s.max_level_gap === 2 ? "selected" : ""}>Écart de 2 niveaux maximum</option></select><small class="muted">Niveaux : Débutant, P25, P50, P100, P250, P500, P1000. Ne s'applique qu'aux créneaux partagés.</small></label>
         <label class="switch full"><span><b>Visible sur le site</b><small>Décochez pour la masquer sans la supprimer.</small></span><input type="checkbox" id="sv-active" ${s.active ? "checked" : ""}></label>
       </form>`,
       foot: `<button class="btn btn--primary" data-action="save-service" data-id="${id || ""}">Enregistrer</button>${id ? `<button class="btn btn--danger" data-action="ask-delete-service" data-id="${id}">Supprimer</button>` : ""}`,
@@ -887,7 +888,7 @@
     if (!(price >= 0)) return toast("Prix invalide.");
     const cap = Math.min(12, Math.max(1, parseInt(v("sv-cap").value, 10) || 1));
     const row = { name, description: v("sv-desc").value.trim() || null, duration_minutes: +v("sv-dur").value, price_cents: price,
-      capacity: cap, level: v("sv-level").value.trim() || null, location_id: v("sv-loc").value || null, color: v("sv-color").value, active: v("sv-active").checked, shared_slot: cap > 1 && v("sv-shared").checked };
+      capacity: cap, level: v("sv-level").value.trim() || null, location_id: v("sv-loc").value || null, color: v("sv-color").value, active: v("sv-active").checked, shared_slot: cap > 1 && v("sv-shared").checked, max_level_gap: v("sv-gap").value === "" ? null : Number(v("sv-gap").value) };
     try {
       if (id) { const r = await S.api.update("services", id, row); S.services[S.services.findIndex((s) => s.id === id)] = r; }
       else { const r = await S.api.insert("services", { ...row, coach_id: S.coach.id, position: S.services.length }); S.services.push(r); }

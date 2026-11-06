@@ -484,3 +484,4 @@ a { color: inherit; }
 .comp__row { display: grid; grid-template-columns: 1fr 1.6fr; gap: 8px; margin-top: 8px; }
 .comp__row input { min-width: 0; }
 @media (max-width: 520px) { .comp__row { grid-template-columns: 1fr; } }
+.lvl2 { margin: 6px 0 14px; }
