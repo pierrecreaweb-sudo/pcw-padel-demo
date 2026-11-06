@@ -2812,7 +2812,7 @@
     let area = document.getElementById("print-area");
     if (!area) { area = document.createElement("div"); area.id = "print-area"; document.body.appendChild(area); }
     const th = (S.site && S.site.theme) || {};
-    const prim = P.hexToRgb(th.primary) ? th.primary : "#0F1B30";
+    const prim = P.hexToRgb(th.primary) ? th.primary : "#0E2A52";
     const acc = P.hexToRgb(th.accent) ? th.accent : "#E4F55B";
     const onP = P.readableOn(prim), onA = P.readableOn(acc);
     const url = esc(bookingUrl().replace(/^https:\/\//, "").replace(/#reserver$/, ""));
