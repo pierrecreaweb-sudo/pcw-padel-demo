@@ -51,6 +51,7 @@
   // --- 3. Chiffres clés : compteur animé (ex. 150+, 3 ans) ---
   const done = new WeakSet();
   function countUps() {
+    if (root.classList.contains("boot")) return;
     document.querySelectorAll(".stats dd").forEach((dd) => {
       if (done.has(dd) || dd.dataset.moText === dd.textContent) return;
       const m = /^(\d{1,5})(.*)$/.exec(dd.textContent.trim());
@@ -69,6 +70,7 @@
     });
   }
   countUps();
+  new MutationObserver(() => { if (!root.classList.contains("boot")) countUps(); }).observe(root, { attributes: true, attributeFilter: ["class"] });
 
   // --- 4. En-tête (ombre au défilement), barre de progression, léger parallaxe de la photo ---
   const top = document.querySelector(".topbar");

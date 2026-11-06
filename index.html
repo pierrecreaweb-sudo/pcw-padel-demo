@@ -4,6 +4,17 @@
 <meta charset="utf-8">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2714%27 fill=%27%230E2A52%27/%3E%3Ccircle cx=%2732%27 cy=%2732%27 r=%2716%27 fill=%27%23E4F55B%27/%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>html.boot body > *:not(script):not(style) { visibility: hidden; } html.boot { background: var(--boot-bg, #0E2A52); }</style>
+<script>
+/* Pas d'écran de démo vide : la page reste masquée (fond de la couleur du coach) jusqu'à l'arrivée de ses données. */
+(function () {
+  var d = document.documentElement;
+  try { var c = localStorage.getItem("pcw-boot-bg"); if (/^#[0-9a-f]{6}$/i.test(c || "")) d.style.setProperty("--boot-bg", c); } catch (e) {}
+  d.classList.add("boot");
+  window.pcwReady = function () { d.classList.remove("boot"); };
+  setTimeout(window.pcwReady, 7000);
+})();
+</script>
 <title>Lucas Ferrand, coach de padel à Toulouse | Démo PCW Padel Coach</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Démo du site de coach de padel par Pierre Créa Web : réservation en ligne, agenda et back-office. Testez-la depuis votre téléphone.">
@@ -19,7 +30,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/site.css?v=mw53yf4f">
+<link rel="stylesheet" href="assets/site.css?v=mw544fm1">
 </head>
 <body>
 <div id="demo-ribbon" class="demo-ribbon" hidden>
@@ -206,12 +217,12 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
 </div>
 
-<script src="assets/config.js?v=mw53yf4f"></script>
-<script src="assets/core.js?v=mw53yf4f"></script>
-<script src="assets/demo-data.js?v=mw53yf4f"></script>
-<script src="assets/api.js?v=mw53yf4f"></script>
-<script src="assets/site.js?v=mw53yf4f"></script>
-<script src="assets/site-extras.js?v=mw53yf4f"></script>
-<script src="assets/motion.js?v=mw53yf4f" defer></script>
+<script src="assets/config.js?v=mw544fm1"></script>
+<script src="assets/core.js?v=mw544fm1"></script>
+<script src="assets/demo-data.js?v=mw544fm1"></script>
+<script src="assets/api.js?v=mw544fm1"></script>
+<script src="assets/site.js?v=mw544fm1"></script>
+<script src="assets/site-extras.js?v=mw544fm1"></script>
+<script src="assets/motion.js?v=mw544fm1" defer></script>
 </body>
 </html>

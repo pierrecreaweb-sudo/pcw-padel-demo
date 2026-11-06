@@ -642,11 +642,13 @@
       state.site = await state.api.getSite(state.slug);
     } catch (e) {
       $("#booking").innerHTML = `<div class="panel"><p class="alert alert--err">${esc(e.message)}</p></div>`;
+      if (window.pcwReady) window.pcwReady();
       return;
     }
     if (!state.site) {
       document.getElementById("main").innerHTML = `<section class="section"><div class="wrap"><h1 class="h2">Site introuvable</h1>
         <p class="muted">Ce site de coach n'existe pas ou n'est pas encore en ligne.</p></div></section>`;
+      if (window.pcwReady) window.pcwReady();
       return;
     }
     state.tz = state.site.coach.timezone || "Europe/Paris";
@@ -659,6 +661,8 @@
     $("#book-rules").textContent = `Réservation ouverte jusqu'à ${c.max_advance_days} jours à l'avance, au plus tard ${c.min_notice_hours} h avant la séance. Règlement sur place.`;
     const pre = new URLSearchParams(location.search).get("service");
     if (pre && services().some((s) => s.id === pre)) selectService(pre, false); else renderBooking();
+    try { const p = (state.site.theme || {}).primary; if (/^#[0-9a-f]{6}$/i.test(p || "")) localStorage.setItem("pcw-boot-bg", p); } catch { /* sans stockage */ }
+    requestAnimationFrame(() => { if (window.pcwReady) window.pcwReady(); });
   }
 
   init();
