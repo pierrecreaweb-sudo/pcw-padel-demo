@@ -1256,7 +1256,7 @@
     const fontOpts = (sel) => Object.keys(P.FONTS).map((f) => `<option ${f === sel ? "selected" : ""}>${f}</option>`).join("");
     const crops = th.crops || {};
     const upload = (key, label, val) => `<div class="field"><span>${label}</span><div class="upload">
-      <span class="upload__thumb${key === "logo_url" ? " upload__thumb--logo" : ""}" id="th-${key}">${val ? thumbImg(val, crops[key]) : ""}</span>
+      <span class="upload__thumb${key === "logo_url" || key === "favicon_url" ? " upload__thumb--logo" : ""}" id="th-${key}">${val ? thumbImg(val, crops[key]) : ""}</span>
       <div class="btn-row"><label class="btn btn--sm">Choisir une image<input type="file" accept="image/*" data-upload="${key}" hidden></label>
       ${val && CROP_FRAMES[key] ? `<button type="button" class="btn btn--sm" data-crop-upload="${key}">${icon("crop")} Recadrer</button>` : ""}
       ${val ? `<button type="button" class="btn btn--sm btn--danger" data-clear-upload="${key}">Retirer</button>` : ""}</div>
@@ -1273,6 +1273,7 @@
             <label class="field"><span>Ville</span><input type="text" id="co-city" maxlength="60" value="${esc(S.coach.city || "")}" placeholder="Montauban"></label>
             <label class="field"><span>Nom affiché en logo</span><input type="text" id="t-logo" maxlength="40" value="${esc(th.logo_text || "")}"></label>
             ${upload("logo_url", "Logo <small>(remplace le texte)</small>", th.logo_url)}
+            ${upload("favicon_url", "Icône de l'onglet <small>(favicon : image carrée, 512 px conseillé)</small>", th.favicon_url)}
             <label class="field"><span>Couleur principale</span><span class="color-row"><input type="color" id="t-primary" value="${esc(th.primary || "#0E2A52")}"><input type="text" id="t-primary-hex" value="${esc(th.primary || "#0E2A52")}" maxlength="7"></span></label>
             <label class="field"><span>Couleur d'action</span><span class="color-row"><input type="color" id="t-accent" value="${esc(th.accent || "#E4F55B")}"><input type="text" id="t-accent-hex" value="${esc(th.accent || "#E4F55B")}" maxlength="7"></span></label>
             <label class="field"><span>Police des titres</span><select id="t-fdisp">${fontOpts(th.font_display || "Archivo")}</select></label>
@@ -1358,7 +1359,7 @@
       toast("Envoi de l'image…");
       try {
         // Le logo garde sa transparence ; les photos sont réduites pour un site rapide.
-        const file = key === "logo_url" ? await toJpegIfHeic(inp.files[0]) : await compressImage(inp.files[0]);
+        const file = key === "logo_url" || key === "favicon_url" ? await toJpegIfHeic(inp.files[0]) : await compressImage(inp.files[0]);
         if (file.size > 5e6) { toast("Image trop lourde : 5 Mo maximum."); return; }
         const url = await S.api.upload(S.coach.id, file);
         page.querySelector("#img-" + key).value = url;
@@ -1590,7 +1591,7 @@
       ...(S.site.theme || {}), logo_text: v("t-logo") || (v("co-name") || S.coach.display_name).toUpperCase(),
       primary: hex("t-primary-hex", "#0E2A52"), accent: hex("t-accent-hex", "#E4F55B"),
       font_display: v("t-fdisp"), font_body: v("t-fbody"),
-      logo_url: v("img-logo_url") || null, hero_image: v("img-hero_image") || null, hero_image_2: v("img-hero_image_2") || null, portrait_image: v("img-portrait_image") || null,
+      logo_url: v("img-logo_url") || null, favicon_url: v("img-favicon_url") || null, hero_image: v("img-hero_image") || null, hero_image_2: v("img-hero_image_2") || null, portrait_image: v("img-portrait_image") || null,
     };
     // Cadrages : seulement pour les photos encore présentes.
     const crops = {};

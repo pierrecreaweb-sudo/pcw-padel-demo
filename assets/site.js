@@ -244,10 +244,24 @@
     });
   }
 
+  // Icône de l'onglet : celle du coach, sinon une balle sur la couleur principale de son site.
+  function setFavicon(theme) {
+    const hex = (v, d) => (/^#[0-9a-f]{6}$/i.test(String(v || "")) ? v : d);
+    const own = safeImg(theme.favicon_url) || safeImg(theme.logo_url);
+    const href = own || "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${hex(theme.primary, "#0E2A52")}"/><circle cx="32" cy="32" r="16" fill="${hex(theme.accent, "#E4F55B")}"/></svg>`);
+    document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach((l) => l.remove());
+    for (const rel of ["icon", "apple-touch-icon"]) {
+      const l = document.createElement("link");
+      l.rel = rel; l.href = href;
+      document.head.appendChild(l);
+    }
+  }
+
   function renderStatic() {
     const { coach, content: c = {}, theme = {}, services = [], locations = [], testimonials = [] } = state.site;
     $("#brand-text").textContent = theme.logo_text || coach.display_name.toUpperCase();
     if (safeImg(theme.logo_url)) $("#brand").innerHTML = `<img src="${esc(theme.logo_url)}" alt="${esc(coach.display_name)}">`;
+    setFavicon(theme);
     $("#hero-eyebrow").textContent = [coach.display_name, coach.city].filter(Boolean).join(" · ");
     $("#hero-title").textContent = c.hero_title || `Coach de padel${coach.city ? " à " + coach.city : ""}`;
     $("#hero-sub").textContent = c.hero_subtitle || "";
