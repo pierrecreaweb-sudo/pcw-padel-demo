@@ -97,7 +97,7 @@ a { color: inherit; }
 }
 .hero__sub { margin: 0 0 28px; font-size: 19px; line-height: 1.5; color: var(--on-brand-muted); max-width: 46ch; }
 .hero__ctas { display: flex; flex-wrap: wrap; gap: 12px; }
-.stats { display: flex; flex-wrap: wrap; gap: 14px 36px; margin: 40px 0 0; padding-top: 22px; border-top: 1px solid rgba(255, 255, 255, .18); }
+.stats { display: flex; flex-wrap: wrap; gap: 14px 36px; margin: 40px 0 0; }
 .stats div { display: flex; flex-direction: column-reverse; }
 .stats dt { font-size: 13px; color: var(--on-brand-muted); }
 .stats dd { margin: 0; font: 800 28px/1.1 var(--f-display); font-stretch: 112%; color: var(--ball); font-variant-numeric: tabular-nums; }
