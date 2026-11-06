@@ -369,18 +369,22 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 /* Affiche imprimée (A4) : seul le bloc #print-area sort à l'impression. */
 #print-area { display: none; }
 @media print {
-  @page { size: A4; margin: 14mm; }
+  @page { size: A4; margin: 0; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { margin: 0; padding: 0; background: #fff; }
   body.printing > *:not(#print-area) { display: none !important; }
   body.printing #print-area { display: block; }
   body.printing::before { display: none; }
-  .poster { text-align: center; color: #0F1B30; font-family: var(--f-body); padding-top: 10mm; }
-  .poster__brand { display: inline-block; padding: 6px 14px; border-radius: 99px; background: var(--p); color: #FFFFFF; font: 800 14pt var(--f-display); letter-spacing: .08em; }
-  .poster h1 { font: 900 36pt/1.05 var(--f-display); margin: 12mm 0 4mm; color: var(--p); text-transform: uppercase; }
-  .poster__sub { font-size: 15pt; margin: 0 0 10mm; }
-  .poster__qr { display: inline-block; padding: 6mm; border: 3px solid var(--p); border-radius: 8mm; line-height: 0; }
-  .poster__qr svg { width: 110mm; height: 110mm; }
-  .poster__how { font-size: 16pt; font-weight: 700; margin: 8mm 0 2mm; }
-  .poster__url { font-size: 12pt; color: #5A6780; margin: 0; }
+  .poster { box-sizing: border-box; width: 210mm; height: 296mm; padding: 18mm 16mm; text-align: center; background: var(--p); color: var(--onp); font-family: var(--f-body); display: flex; flex-direction: column; align-items: center; overflow: hidden; page-break-after: avoid; }
+  .poster__top { margin-bottom: 14mm; }
+  .poster__brand { display: inline-block; padding: 3mm 7mm; border-radius: 99px; background: var(--a); color: var(--ona); font: 800 15pt var(--f-display); letter-spacing: .1em; }
+  .poster h1 { font: 900 44pt/1.02 var(--f-display); margin: 0; text-transform: uppercase; color: var(--onp); }
+  .poster__bar { display: block; width: 40mm; height: 3mm; border-radius: 2mm; background: var(--a); margin: 8mm 0 6mm; }
+  .poster__sub { font-size: 16pt; margin: 0 0 12mm; opacity: .92; }
+  .poster__qr { display: inline-block; padding: 8mm; background: #fff; border: 4mm solid var(--a); border-radius: 10mm; line-height: 0; }
+  .poster__qr svg { width: 100mm; height: 100mm; }
+  .poster__how { font-size: 17pt; font-weight: 800; margin: 12mm 0 3mm; }
+  .poster__url { font-size: 14pt; margin: 0; padding: 2.5mm 7mm; border-radius: 99px; background: var(--a); color: var(--ona); font-weight: 800; }
 }
 
 /* ---------------------------------------------------------------- avis --- */

@@ -2812,13 +2812,19 @@
     let area = document.getElementById("print-area");
     if (!area) { area = document.createElement("div"); area.id = "print-area"; document.body.appendChild(area); }
     const th = (S.site && S.site.theme) || {};
-    area.innerHTML = `<div class="poster" style="--p:${esc(brandColor())};--a:${esc(P.hexToRgb(th.accent) ? th.accent : "#E4F55B")}">
-      <div class="poster__brand">${esc((th.logo_text || S.coach.display_name).toUpperCase())}</div>
-      <h1>Réservez votre cours de padel</h1>
+    const prim = P.hexToRgb(th.primary) ? th.primary : "#0F1B30";
+    const acc = P.hexToRgb(th.accent) ? th.accent : "#E4F55B";
+    const onP = P.readableOn(prim), onA = P.readableOn(acc);
+    const url = esc(bookingUrl().replace(/^https:\/\//, "").replace(/#reserver$/, ""));
+    // QR sombre sur carte blanche (toujours lisible), cadre aux couleurs du coach.
+    area.innerHTML = `<div class="poster" style="--p:${esc(prim)};--a:${esc(acc)};--onp:${onP};--ona:${onA}">
+      <div class="poster__top"><span class="poster__brand">${esc((th.logo_text || S.coach.display_name).toUpperCase())}</span></div>
+      <h1>Réservez votre<br>cours de padel</h1>
+      <span class="poster__bar"></span>
       <p class="poster__sub">En ligne, 24 h/24, confirmation immédiate</p>
-      <div class="poster__qr">${qrSvg(bookingUrl(), "#0F1B30", 420)}</div>
+      <div class="poster__qr">${qrSvg(bookingUrl(), brandColor(), 420)}</div>
       <p class="poster__how">Scannez avec l'appareil photo de votre téléphone</p>
-      <p class="poster__url">${esc(bookingUrl().replace(/^https:\/\//, "").replace(/#reserver$/, ""))}</p></div>`;
+      <p class="poster__url">${url}</p></div>`;
     document.body.classList.add("printing");
     const done = () => { document.body.classList.remove("printing"); window.removeEventListener("afterprint", done); };
     window.addEventListener("afterprint", done);
