@@ -662,7 +662,10 @@
     const pre = new URLSearchParams(location.search).get("service");
     if (pre && services().some((s) => s.id === pre)) selectService(pre, false); else renderBooking();
     try { const p = (state.site.theme || {}).primary; if (/^#[0-9a-f]{6}$/i.test(p || "")) localStorage.setItem("pcw-boot-bg", p); } catch { /* sans stockage */ }
-    requestAnimationFrame(() => { if (window.pcwReady) window.pcwReady(); });
+    // On attend aussi les polices et les photos du bandeau (1,8 s au plus) pour qu'elles n'apparaissent pas après coup.
+    const imgs = [...document.querySelectorAll(".hero img")].filter((i) => !i.complete).map((i) => new Promise((r) => { i.onload = i.onerror = r; }));
+    const fonts = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+    Promise.race([Promise.all([fonts, ...imgs]), new Promise((r) => setTimeout(r, 1800))]).then(() => requestAnimationFrame(() => { if (window.pcwReady) window.pcwReady(); }));
   }
 
   init();

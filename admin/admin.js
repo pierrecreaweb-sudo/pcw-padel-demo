@@ -2561,18 +2561,25 @@
     creneaux: (n, url) => `Il me reste des créneaux de coaching cette semaine. Réservez le vôtre ici, c'est confirmé tout de suite :\n${url}`,
     apres: (n, url) => `Merci pour la séance ! Pour réserver la prochaine, tout se passe ici :\n${url}\nVotre avis m'aide beaucoup si vous avez une minute pour le laisser après la séance.`,
   };
-  function qrSvg(text, color, size = 240) {
-    const qr = window.qrcode(0, "M");
+  // Logo au centre des QR codes : celui du haut du site s'il existe, sinon un logo réservé aux QR codes.
+  const qrLogoUrl = () => {
+    const th = (S.site && S.site.theme) || {};
+    const ok = (u) => (/^(https:\/\/|data:image\/)/i.test(String(u || "")) ? u : "");
+    return ok(th.logo_url) || ok(th.qr_logo_url) || "";
+  };
+  const QR_LOGO_RATIO = 0.22; // part de la largeur du QR code (correction d'erreur H : jusqu'à 30 % de surface)
+  function qrSvg(text, color, size = 240, logo = "") {
+    const qr = window.qrcode(0, logo ? "H" : "M");
     qr.addData(text);
     qr.make();
     const n = qr.getModuleCount(), q = 4, total = n + q * 2;
     let d = "";
     for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c + q} ${r + q}h1v1h-1z`;
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${size}" height="${size}" shape-rendering="crispEdges" role="img" aria-label="QR code vers votre page de réservation">
-      <rect width="${total}" height="${total}" fill="#FFFFFF"/><path d="${d}" fill="${esc(color)}"/></svg>`;
+      <rect width="${total}" height="${total}" fill="#FFFFFF"/><path d="${d}" fill="${esc(color)}"/>${logo ? (() => { const s = n * QR_LOGO_RATIO, p = s * 0.12, x = (total - s) / 2; return `<rect x="${x - p}" y="${x - p}" width="${s + 2 * p}" height="${s + 2 * p}" rx="${s * 0.18}" fill="#FFFFFF"/><image href="${esc(logo)}" x="${x}" y="${x}" width="${s}" height="${s}" preserveAspectRatio="xMidYMid meet"/>`; })() : ""}</svg>`;
   }
-  function qrCanvas(text, color, px) {
-    const qr = window.qrcode(0, "M");
+  function qrCanvas(text, color, px, logoImg) {
+    const qr = window.qrcode(0, logoImg ? "H" : "M");
     qr.addData(text); qr.make();
     const n = qr.getModuleCount(), q = 4, cell = Math.floor(px / (n + q * 2));
     const cv = document.createElement("canvas");
@@ -2581,7 +2588,22 @@
     g.fillStyle = "#FFFFFF"; g.fillRect(0, 0, cv.width, cv.height);
     g.fillStyle = color;
     for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) g.fillRect((c + q) * cell, (r + q) * cell, cell, cell);
+    if (logoImg && logoImg.width) {
+      const s = n * cell * QR_LOGO_RATIO, p = s * 0.12, x = (cv.width - s) / 2, k = Math.min(s / logoImg.width, s / logoImg.height);
+      const w = logoImg.width * k, h = logoImg.height * k;
+      g.fillStyle = "#FFFFFF";
+      g.beginPath(); g.roundRect ? g.roundRect(x - p, x - p, s + 2 * p, s + 2 * p, s * 0.18) : g.rect(x - p, x - p, s + 2 * p, s + 2 * p); g.fill();
+      g.drawImage(logoImg, (cv.width - w) / 2, (cv.height - h) / 2, w, h);
+    }
     return cv;
+  }
+  function qrLogoBlock() {
+    const th = (S.site && S.site.theme) || {};
+    if (th.logo_url) return `<p class="muted" style="margin:0;font-size:13px;text-align:center">Votre logo (en haut de votre site) est ajouté automatiquement au centre du QR code.</p>`;
+    return `<div class="qr-logo"><p style="margin:0;font-weight:700;font-size:14px">Logo du QR code</p>
+      <p class="muted" style="margin:2px 0 8px;font-size:13px">Vous n'avez pas de logo en haut de votre site. Ajoutez-en un ici : il apparaîtra uniquement dans vos QR codes (téléchargement, affiche, Story).</p>
+      <div class="btn-row" style="justify-content:center"><label class="btn btn--sm">${th.qr_logo_url ? "Changer le logo" : "Choisir un logo"}<input type="file" accept="image/*" id="qr-logo-file" hidden></label>
+      ${th.qr_logo_url ? `<button type="button" class="btn btn--sm btn--danger" data-action="qr-logo-remove">Retirer</button>` : ""}</div></div>`;
   }
   function viewShare() {
     const url = bookingUrl(), name = S.coach.display_name;
@@ -2611,7 +2633,8 @@
           </section>
         </div>
         <section class="card share-qr"><h2>QR code</h2>
-          <div class="share-qr__code" id="share-qr">${window.qrcode ? qrSvg(url, brandColor()) : ""}</div>
+          <div class="share-qr__code" id="share-qr">${window.qrcode ? qrSvg(url, brandColor(), 240, qrLogoUrl()) : ""}</div>
+          ${qrLogoBlock()}
           <p class="muted" style="margin:0;font-size:13px;text-align:center">Vos élèves le scannent avec l'appareil photo de leur téléphone et arrivent directement sur la réservation.</p>
           <div class="btn-row" style="justify-content:center">
             <button type="button" class="btn btn--dark" data-action="qr-png">Télécharger le QR code</button>
@@ -2645,7 +2668,27 @@
     refreshInstaPreview();
     const ta = page.querySelector("#share-msg");
     ta.addEventListener("input", () => { S.ui.shareMsg = ta.value; });
+    const lf = page.querySelector("#qr-logo-file");
+    if (lf) lf.addEventListener("change", async () => {
+      const f0 = lf.files[0];
+      if (!f0) return;
+      if (!/^image\//.test(f0.type)) return toast("Choisissez une image (PNG, JPG ou WebP).");
+      toast("Envoi du logo…");
+      try {
+        const f = await toJpegIfHeic(f0);
+        if (f.size > 5e6) return toast("Image trop lourde : 5 Mo maximum.");
+        const url = await S.api.upload(S.coach.id, f);
+        await saveQrLogo(url);
+        toast("Logo ajouté à vos QR codes");
+      } catch (err) { toast(errMsg(err)); }
+    });
   };
+  async function saveQrLogo(url) {
+    const theme = { ...((S.site && S.site.theme) || {}) };
+    if (url) theme.qr_logo_url = url; else delete theme.qr_logo_url;
+    S.site = await S.api.saveSiteContent(S.coach.id, { theme, content: (S.site && S.site.content) || {} });
+    render();
+  }
   const shareText = () => (document.getElementById("share-msg") || {}).value || bookingUrl();
   async function saveBlob(blob, filename, shareTitle) {
     const file = new File([blob], filename, { type: blob.type });
@@ -2872,13 +2915,16 @@
       g.font = `500 38px ${body}`; g.fillStyle = "rgba(255,255,255,.85)";
       g.fillText("Scannez avec l'appareil photo", W / 2, y + 6);
       const size = story ? 600 : 380;
-      const qr = qrCanvas(bookingUrl(), "#0F1B30", size);
+      const qrLogo = await loadImg(qrLogoUrl());
+      const qr = qrCanvas(bookingUrl(), "#0F1B30", size, qrLogo);
       const box = qr.width + 64, bx = (W - box) / 2, by = y + 60;
       g.save(); g.shadowColor = "rgba(0,0,0,.35)"; g.shadowBlur = 50; rr(bx, by, box, box, 40); g.fillStyle = "#FFFFFF"; g.fill(); g.restore();
       g.drawImage(qr, bx + 32, by + 32);
-      // Balle au centre du QR
-      g.fillStyle = accent; g.beginPath(); g.arc(W / 2, by + box / 2, 40, 0, Math.PI * 2); g.fill();
-      g.strokeStyle = "#FFFFFF"; g.lineWidth = 10; g.stroke();
+      // Balle au centre du QR (sauf si le logo du coach y figure déjà)
+      if (!qrLogo) {
+        g.fillStyle = accent; g.beginPath(); g.arc(W / 2, by + box / 2, 40, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = "#FFFFFF"; g.lineWidth = 10; g.stroke();
+      }
       g.textAlign = "left";
       ctaBlock(Math.min(bottom - 140, by + box + 110));
     }
@@ -2917,7 +2963,7 @@
       <h1>Réservez votre<br>cours de padel</h1>
       <span class="poster__bar"></span>
       <p class="poster__sub">En ligne, 24 h/24, confirmation immédiate</p>
-      <div class="poster__qr">${qrSvg(bookingUrl(), brandColor(), 420)}</div>
+      <div class="poster__qr">${qrSvg(bookingUrl(), brandColor(), 420, qrLogoUrl())}</div>
       <p class="poster__how">Scannez avec l'appareil photo de votre téléphone</p>
       <p class="poster__url">${url}</p></div>`;
     document.body.classList.add("printing");
@@ -3450,8 +3496,9 @@
     "share-sms": () => { location.href = `sms:?&body=${encodeURIComponent(shareText())}`; },
     "share-mail": () => { location.href = `mailto:?subject=${encodeURIComponent(`Réservez votre cours de padel avec ${S.coach.display_name}`)}&body=${encodeURIComponent(shareText())}`; },
     "share-copy-msg": () => copyText(shareText()),
+    "qr-logo-remove": async () => { try { await saveQrLogo(null); toast("Logo retiré des QR codes"); } catch (err) { toast(errMsg(err)); } },
     "qr-png": async () => {
-      const cv = qrCanvas(bookingUrl(), brandColor(), 1200);
+      const cv = qrCanvas(bookingUrl(), brandColor(), 1200, await loadImg(qrLogoUrl()));
       cv.toBlob((b) => saveBlob(b, `qr-reservation-${S.coach.slug}.png`, "QR code de réservation"), "image/png");
     },
     "story-png": async () => { const b = await instaImage("reserver", "story"); await saveBlob(b, `story-reservation-${S.coach.slug}.png`, "Story Instagram"); },
