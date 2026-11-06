@@ -18,6 +18,7 @@
   h1 { font: 800 clamp(28px, 5vw, 40px)/1.15 "Archivo", system-ui, sans-serif; margin: 28px 0 6px; color: var(--brand); }
   h2 { font: 800 24px/1.2 "Archivo", system-ui, sans-serif; color: var(--brand); margin: 0 0 12px; }
   h3 { font-size: 17px; margin: 20px 0 6px; }
+  h4 { font-size: 15px; margin: 16px 0 6px; }
   section { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; margin: 16px 0; scroll-margin-top: 16px; }
   nav.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 4px; }
   nav.toc a { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 7px 14px; font-weight: 700; font-size: 14px; color: var(--ink); text-decoration: none; }
@@ -65,7 +66,7 @@
     <ul class="check">
       <li><b>Mon site</b> : votre texte de présentation, vos photos (vous pouvez les recadrer), vos couleurs, vos liens Instagram et WhatsApp, votre téléphone. Les pages légales reprennent votre nom, votre SIRET et votre email : vérifiez-les.</li>
       <li><b>Prestations et lieux</b> : pour chaque séance, son nom, sa durée, le nombre de joueurs, le niveau, le prix. Ajoutez vos clubs avec leur adresse ; si un club prélève une part, indiquez-la (elle sert aux statistiques).</li>
-      <li><b>Agenda</b> : dans « Disponibilités de la semaine type », indiquez vos jours et vos heures de coaching, lieu par lieu.</li>
+      <li><b>Agenda</b> : dans « Disponibilités de la semaine type », indiquez vos jours et vos heures de coaching, lieu par lieu. Si vos horaires changent chaque semaine, vous pouvez aussi masquer la semaine type et ajouter vos créneaux semaine par semaine (voir « Agenda » plus bas).</li>
       <li><b>Réglages</b> : délai de prévenance, nombre de jours ouverts à la réservation, délai d'annulation gratuite, validation automatique ou non, et l'email qui reçoit vos nouvelles réservations.</li>
       <li><b>Test</b> : réservez une séance vous-même avec un autre email, puis annulez-la par le lien reçu. Vérifiez qu'elle apparaît dans vos Réservations.</li>
     </ul>
@@ -85,6 +86,14 @@
     </ul>
     <h3>Agenda</h3>
     <p>La semaine en vue calendrier, avec le taux de remplissage. Vous pouvez y ajouter une réservation vous-même (élève qui vous écrit ou vous appelle), ajuster la semaine type, et bloquer une période dans « Absences et créneaux bloqués » (vacances, tournoi, rendez-vous).</p>
+    <h4>Semaine type ou créneaux semaine par semaine</h4>
+    <p>Dans la carte <b>Disponibilités de la semaine type</b>, l'interrupteur <b>Afficher ma semaine type aux joueurs</b> choisit comment vos joueurs réservent :</p>
+    <ul>
+      <li><b>Activé (par défaut)</b> : vos plages se répètent chaque semaine. Rien d'autre à faire.</li>
+      <li><b>Désactivé</b> : vos joueurs ne peuvent réserver que sur les créneaux que vous ajoutez, semaine par semaine. Pratique si vos horaires changent souvent.</li>
+    </ul>
+    <p>Pour ajouter des créneaux, utilisez la carte <b>Créneaux ajoutés semaine par semaine</b> : choisissez la date, l'heure de début, l'heure de fin et le lieu, puis touchez <span class="k">Ajouter</span>. Le bouton <span class="k">Copier ma semaine type sur la semaine prochaine</span> remplit toute la semaine suivante en un geste. Vous pouvez aussi ouvrir un créneau exceptionnel quand la semaine type est affichée : il s'ajoute à elle.</p>
+    <p><b>Le rappel du vendredi</b> : si votre semaine type est masquée et qu'aucun créneau n'est encore prévu pour la semaine suivante, vous recevez le vendredi à 20 h un email (et une notification si vous les avez activées) avec un lien vers l'Agenda. Dès que vous avez ajouté au moins un créneau pour cette semaine-là, le rappel n'est plus envoyé.</p>
     <h3>Messages</h3>
     <p>Ce que vos visiteurs vous écrivent depuis le formulaire de contact. Vous les recevez aussi par email. Répondez directement par email, appel ou WhatsApp depuis la fiche du message.</p>
     <h3>Joueurs</h3>
@@ -103,7 +112,7 @@
     <ul>
       <li><b>Mon lien de réservation</b> : à mettre en bio Instagram, dans votre signature, sur WhatsApp.</li>
       <li><b>Message à envoyer</b> : des textes prêts à copier (annonce, rappel, après une séance).</li>
-      <li><b>QR code</b> : à afficher au club ou à imprimer ; un élève le scanne et réserve.</li>
+      <li><b>QR code</b> : à afficher au club ou à imprimer ; un élève le scanne et réserve. Le bouton <span class="k">Imprimer une affiche</span> prépare une affiche A4 aux couleurs de votre site, avec le QR code. Dans la fenêtre d'impression, si les couleurs n'apparaissent pas, ouvrez « Plus de paramètres » et cochez « Graphiques d'arrière-plan ».</li>
       <li><b>Kit Instagram</b> : des visuels à vos couleurs (réservez, créneaux libres, avis, QR code) en format story ou post, avec une légende prête. Voir aussi le <a href="kit-instagram.html">guide du kit Instagram</a>.</li>
     </ul>
     <h3>Mon site</h3>
@@ -130,7 +139,7 @@
     </ul>
     <p>Une facture passe à « Payée » dès que PCW a reçu votre paiement (le délai peut aller jusqu'à un jour ouvré pour un virement).</p>
     <h3>Recevoir une notification sur votre téléphone ou votre ordinateur</h3>
-    <p>Vous êtes prévenu tout de suite d'une nouvelle réservation, d'une réservation à valider, d'une annulation, d'un nouvel avis ou d'un message du site.</p>
+    <p>Vous êtes prévenu tout de suite d'une nouvelle réservation, d'une réservation à valider, d'une annulation, d'un nouvel avis ou d'un message du site. Si vous avez masqué votre semaine type, vous recevez aussi le rappel du vendredi à 20 h pour ajouter vos créneaux de la semaine suivante.</p>
     <ol>
       <li>Ouvrez <b>Réglages</b> dans votre espace.</li>
       <li>Dans la carte <b>Notifications</b>, touchez <b>Activer sur cet appareil</b>.</li>
@@ -156,11 +165,13 @@
   <section id="faq">
     <h2>7. Questions fréquentes</h2>
     <details><summary>Je ne reçois pas l'email d'invitation ou de connexion</summary><p>Regardez dans les courriers indésirables, puis demandez à PCW de vous le renvoyer (c'est instantané). Vérifiez que l'adresse donnée à PCW est la bonne.</p></details>
-    <details><summary>Un élève dit qu'il ne trouve aucun créneau</summary><p>Vérifiez dans l'Agenda que la semaine type contient des plages pour le lieu et la prestation concernés, que la période n'est pas bloquée, et dans Réglages le délai de prévenance et le nombre de jours ouverts.</p></details>
+    <details><summary>Un élève dit qu'il ne trouve aucun créneau</summary><p>Si vous avez masqué votre semaine type, vérifiez que vous avez bien ajouté des créneaux pour la semaine concernée (carte « Créneaux ajoutés semaine par semaine »). Sinon, vérifiez dans l'Agenda que la semaine type contient des plages pour le lieu et la prestation concernés, que la période n'est pas bloquée, et dans Réglages le délai de prévenance et le nombre de jours ouverts.</p></details>
     <details><summary>Un élève ne peut plus annuler en ligne</summary><p>Le délai d'annulation gratuite est dépassé. Vous pouvez annuler vous-même depuis la réservation si vous le décidez.</p></details>
     <details><summary>Je veux fermer mes réservations quelques jours</summary><p>Bloquez la période dans Agenda, « Absences et créneaux bloqués ». Les créneaux disparaissent du site.</p></details>
     <details><summary>Je veux changer mon adresse de site ou utiliser mon propre nom de domaine</summary><p>Écrivez au support : PCW s'en occupe (le nom de domaine reste à votre charge et à votre nom).</p></details>
-    <details><summary>Je n'arrive pas à lire une photo ou elle est mal recadrée</summary><p>Dans Mon site, rechargez la photo : un outil de recadrage s'ouvre. Préférez des photos nettes, en paysage pour la photo principale.</p></details>
+    <details><summary>Je n'arrive pas à lire une photo ou elle est mal recadrée</summary><p>Dans Mon site, rechargez la photo : un outil de recadrage s'ouvre. Faites glisser la photo pour choisir la partie visible, et utilisez la barre « Zoom » : vers la droite pour agrandir, vers la gauche pour <b>dézoomer</b> et montrer la photo en entier. Préférez des photos nettes, en paysage pour la photo principale.</p></details>
+    <details><summary>Ma photo d'iPhone est refusée</summary><p>Les photos d'iPhone (format HEIC) sont converties automatiquement en JPG au moment de l'envoi. Si un message d'erreur apparaît, envoyez la photo en JPG : sur iPhone, réglez Réglages, Appareil photo, Formats sur « Le plus compatible », ou exportez-la en JPEG depuis l'application Photos.</p></details>
+    <details><summary>Comment me connecter à mon espace depuis mon site ?</summary><p>En bas de la page d'accueil de votre site, touchez le lien discret <b>Espace coach</b>. Il ouvre la page de connexion de votre espace (adresse de votre site suivie de /admin/).</p></details>
     <details><summary>Que deviennent mes données si j'arrête ?</summary><p>Vous pouvez demander un export (CSV) de vos joueurs et réservations dans les 30 jours après la fin de l'abonnement. Ensuite elles sont supprimées (conditions générales, article 14).</p></details>
   </section>
 
