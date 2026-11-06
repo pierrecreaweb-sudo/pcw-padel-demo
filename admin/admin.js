@@ -2635,10 +2635,12 @@
         <section class="card share-qr"><h2>QR code</h2>
           <div class="share-qr__code" id="share-qr">${window.qrcode ? qrSvg(url, brandColor(), 240, qrLogoUrl()) : ""}</div>
           ${qrLogoBlock()}
+          <p class="muted" style="margin:0;font-size:13px;text-align:center">Votre imprimante est en noir et blanc ? L'impression sort alors en gris. Téléchargez « Affiche en couleur (image) » : vous pouvez l'imprimer sur n'importe quelle imprimante couleur ou chez un imprimeur.</p>
           <p class="muted" style="margin:0;font-size:13px;text-align:center">Vos élèves le scannent avec l'appareil photo de leur téléphone et arrivent directement sur la réservation.</p>
           <div class="btn-row" style="justify-content:center">
             <button type="button" class="btn btn--dark" data-action="qr-png">Télécharger le QR code</button>
             <button type="button" class="btn" data-action="poster-print">Imprimer une affiche</button>
+            <button type="button" class="btn" data-action="poster-png">Affiche en couleur (image)</button>
           </div>
         </section>
       </div>
@@ -2949,6 +2951,57 @@
     const tag = city ? " #padel" + city.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9]/g, "") : "";
     return `🎾 Réservez votre cours de padel en ligne, 24 h/24 : choisissez votre séance et votre créneau, c'est confirmé tout de suite.\n👉 Lien en bio\n\n#padel #coachpadel #coursdepadel${tag}`;
   };
+  // Affiche A4 en image couleur (identique à l'affiche imprimable) : s'imprime en couleur où que ce soit.
+  async function posterImage() {
+    try { await document.fonts.ready; } catch { /* polices facultatives */ }
+    const th = (S.site && S.site.theme) || {};
+    const prim = P.hexToRgb(th.primary) ? th.primary : "#0E2A52";
+    const acc = P.hexToRgb(th.accent) ? th.accent : "#E4F55B";
+    const onP = P.readableOn(prim), onA = P.readableOn(acc);
+    const disp = `"${th.font_display || "Archivo"}", "Arial Narrow", sans-serif`, body = `"${th.font_body || "Hanken Grotesk"}", sans-serif`;
+    const k = 12; // pixels par mm (≈ 305 dpi)
+    const W = 210 * k, H = 297 * k;
+    const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    const g = cv.getContext("2d");
+    const mm = (v) => v * k, pt = (v) => v * 0.3528 * k;
+    const rr = (x, y, w, h, r) => { g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, r); else g.rect(x, y, w, h); };
+    g.fillStyle = prim; g.fillRect(0, 0, W, H);
+    g.textAlign = "center"; g.textBaseline = "alphabetic";
+    let y = mm(18);
+    // pastille du nom
+    const name = (th.logo_text || S.coach.display_name).toUpperCase();
+    g.font = `800 ${pt(15)}px ${disp}`;
+    if ("letterSpacing" in g) g.letterSpacing = `${pt(15) * 0.1}px`;
+    const nw = g.measureText(name).width + mm(14), nh = mm(11.5);
+    g.fillStyle = acc; rr((W - nw) / 2, y, nw, nh, nh / 2); g.fill();
+    g.fillStyle = onA; g.fillText(name, W / 2, y + nh / 2 + pt(15) * 0.35);
+    if ("letterSpacing" in g) g.letterSpacing = "0px";
+    y += nh + mm(14);
+    // titre
+    g.fillStyle = onP; g.font = `900 ${pt(44)}px ${disp}`;
+    for (const l of ["RÉSERVEZ VOTRE", "COURS DE PADEL"]) { y += pt(44) * 0.92; g.fillText(l, W / 2, y); y += pt(44) * 0.1; }
+    // barre
+    y += mm(8); g.fillStyle = acc; rr((W - mm(40)) / 2, y, mm(40), mm(3), mm(1.5)); g.fill(); y += mm(3) + mm(6);
+    // sous-titre
+    g.fillStyle = onP; g.globalAlpha = 0.92; g.font = `500 ${pt(16)}px ${body}`;
+    y += pt(16); g.fillText("En ligne, 24 h/24, confirmation immédiate", W / 2, y); g.globalAlpha = 1; y += mm(12);
+    // QR code dans sa carte blanche à cadre de la couleur d'action
+    const qrLogo = await loadImg(qrLogoUrl());
+    const inner = mm(100), pad = mm(8), bord = mm(4), box = inner + 2 * pad + 2 * bord, bx = (W - box) / 2;
+    g.fillStyle = acc; rr(bx, y, box, box, mm(10)); g.fill();
+    g.fillStyle = "#FFFFFF"; rr(bx + bord, y + bord, box - 2 * bord, box - 2 * bord, mm(7)); g.fill();
+    g.drawImage(qrCanvas(bookingUrl(), brandColor(), Math.round(inner * 1.05), qrLogo), bx + bord + pad, y + bord + pad, inner, inner);
+    y += box + mm(12);
+    // consigne + adresse
+    g.fillStyle = onP; g.font = `800 ${pt(17)}px ${body}`;
+    y += pt(17); g.fillText("Scannez avec l'appareil photo de votre téléphone", W / 2, y); y += mm(3);
+    const url = bookingUrl().replace(/^https:\/\//, "").replace(/#reserver$/, "");
+    g.font = `800 ${pt(14)}px ${body}`;
+    const uw = g.measureText(url).width + mm(14), uh = mm(10.5);
+    y += mm(3); g.fillStyle = acc; rr((W - uw) / 2, y, uw, uh, uh / 2); g.fill();
+    g.fillStyle = onA; g.fillText(url, W / 2, y + uh / 2 + pt(14) * 0.35);
+    return new Promise((res) => cv.toBlob(res, "image/png"));
+  }
   function printPoster() {
     let area = document.getElementById("print-area");
     if (!area) { area = document.createElement("div"); area.id = "print-area"; document.body.appendChild(area); }
@@ -3523,6 +3576,7 @@
       catch { toast("Copie impossible sur ce navigateur"); }
     },
     "poster-print": () => printPoster(),
+    "poster-png": async () => { toast("Création de l'affiche…"); try { const b = await posterImage(); await saveBlob(b, `affiche-reservation-${S.coach.slug}.png`, "Affiche de réservation"); } catch (err) { toast(errMsg(err)); } },
     // avis
     "rev-filter": (el) => { S.ui.revFilter = el.dataset.f; S.ui.revLimit = 10; render(); },
     "rev-more": () => { S.ui.revLimit = (S.ui.revLimit || 10) + 10; render(); },
