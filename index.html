@@ -18,7 +18,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/site.css?v=mw4zdrn0">
+<link rel="stylesheet" href="assets/site.css?v=mw4zs78l">
 </head>
 <body>
 <div id="demo-ribbon" class="demo-ribbon" hidden>
@@ -45,9 +45,12 @@
 
 <main id="main">
   <section class="hero" aria-labelledby="hero-title">
-    <svg class="hero__lines" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <rect x="40" y="40" width="1120" height="520" rx="8"/><line x1="600" y1="30" x2="600" y2="570"/>
-      <line x1="210" y1="40" x2="210" y2="560"/><line x1="990" y1="40" x2="990" y2="560"/><line x1="210" y1="300" x2="990" y2="300"/>
+    <!-- Terrain de padel à l'échelle réelle (20 m x 10 m, 50 unités par mètre) : lignes de fond et de côté, lignes de service à 6,95 m du filet, ligne centrale, filet. -->
+    <svg class="hero__lines" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <rect x="100" y="50" width="1000" height="500"/>
+      <line x1="252.5" y1="50" x2="252.5" y2="550"/><line x1="947.5" y1="50" x2="947.5" y2="550"/>
+      <line x1="252.5" y1="300" x2="947.5" y2="300"/>
+      <line class="hero__net" x1="600" y1="38" x2="600" y2="562"/>
     </svg>
     <div class="wrap hero__in">
       <div class="hero__text">
@@ -202,11 +205,11 @@
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></button>
 </div>
 
-<script src="assets/config.js?v=mw4zdrn0"></script>
-<script src="assets/core.js?v=mw4zdrn0"></script>
-<script src="assets/demo-data.js?v=mw4zdrn0"></script>
-<script src="assets/api.js?v=mw4zdrn0"></script>
-<script src="assets/site.js?v=mw4zdrn0"></script>
-<script src="assets/site-extras.js?v=mw4zdrn0"></script>
+<script src="assets/config.js?v=mw4zs78l"></script>
+<script src="assets/core.js?v=mw4zs78l"></script>
+<script src="assets/demo-data.js?v=mw4zs78l"></script>
+<script src="assets/api.js?v=mw4zs78l"></script>
+<script src="assets/site.js?v=mw4zs78l"></script>
+<script src="assets/site-extras.js?v=mw4zs78l"></script>
 </body>
 </html>

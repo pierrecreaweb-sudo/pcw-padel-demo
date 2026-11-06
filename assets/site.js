@@ -148,7 +148,7 @@
   // ------------------------------------------------------------ photos ---
   const isDemo = () => state.api && state.api.mode === "demo";
   const CAMERA = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
-  const COURT = '<svg class="ph__court" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><rect x="6" y="6" width="88" height="88"/><line x1="6" y1="50" x2="94" y2="50" stroke-dasharray="2 2"/><line x1="6" y1="22" x2="94" y2="22"/><line x1="6" y1="78" x2="94" y2="78"/><line x1="50" y1="22" x2="50" y2="78"/></svg>';
+  const COURT = '<svg class="ph__court" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><rect x="6" y="6" width="88" height="88"/><line x1="6" y1="50" x2="94" y2="50" stroke-dasharray="2 2"/><line x1="6" y1="19.4" x2="94" y2="19.4"/><line x1="6" y1="80.6" x2="94" y2="80.6"/><line x1="50" y1="19.4" x2="50" y2="80.6"/></svg>';
   // Emplacement stylisé : en démo, il annonce la photo attendue ; sur un vrai site sans photo, il montre les initiales.
   function placeholder(label, { mono } = {}) {
     if (mono) return `<div class="ph" role="img" aria-label="${esc(state.site.coach.display_name)}">${COURT}<div class="ph__inner"><span class="ph__mono">${esc(initials(state.site.coach.display_name))}</span></div></div>`;
