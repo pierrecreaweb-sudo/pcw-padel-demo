@@ -208,10 +208,18 @@
 
   // ============================================================== rendu ===
   function render() { renderCore(); navTick(); }
+  // Icône PCW (déclarée dans index.html) pour la connexion et la console ; celle du coach dans son espace.
+  const PCW_ICONS = [...document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]')].map((l) => l.cloneNode());
+  function pcwIcon() {
+    document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach((l) => l.remove());
+    PCW_ICONS.forEach((l) => document.head.appendChild(l.cloneNode()));
+  }
   function renderCore() {
     if (!S.api) return;
+    if (S.recovery || !S.user) pcwIcon(true);
     if (S.recovery) return renderRecovery();
     if (!S.user) return renderLogin();
+    if (inConsole() || !S.coach) pcwIcon(true); else P.setFavicon((S.site && S.site.theme) || {});
     if (inConsole()) return renderConsole();
     if (!S.coach) {
       app.innerHTML = `<div class="login"><div class="login__card"><h1>Aucun site rattaché</h1>

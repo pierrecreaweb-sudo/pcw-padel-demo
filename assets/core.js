@@ -185,6 +185,23 @@
     return "#" + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, "0")).join("");
   }
   // Texte lisible (blanc ou encre) sur une couleur donnée.
+  // Icône de l'onglet : celle du coach (favicon, sinon logo), sinon une balle aux couleurs du site.
+  // Sans thème (console PCW, connexion) : la balle PCW.
+  function setFavicon(theme) {
+    if (typeof document === "undefined") return;
+    const t = theme || {};
+    const hex = (v, d) => (/^#[0-9a-f]{6}$/i.test(String(v || "")) ? v : d);
+    const ok = (u) => (/^(https:\/\/|data:image\/)/i.test(String(u || "")) ? u : "");
+    const own = ok(t.favicon_url) || ok(t.logo_url);
+    const href = own || "data:image/svg+xml," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="${hex(t.primary, "#0E2A52")}"/><circle cx="32" cy="32" r="16" fill="${hex(t.accent, "#E4F55B")}"/></svg>`);
+    document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]').forEach((l) => l.remove());
+    for (const rel of ["icon", "apple-touch-icon"]) {
+      const l = document.createElement("link");
+      l.rel = rel; l.href = href;
+      document.head.appendChild(l);
+    }
+  }
+
   function readableOn(hex) {
     const c = hexToRgb(hex);
     if (!c) return "#FFFFFF";
@@ -218,7 +235,7 @@
   }
 
   const api = {
-    normCrop, cropStyle, FONTS, fontsUrl, hexToRgb, mix, readableOn, normalizeCalendarUrl,
+    normCrop, cropStyle, FONTS, fontsUrl, hexToRgb, mix, readableOn, setFavicon, normalizeCalendarUrl,
     pad, tzParts, zonedToUtc, localYmd, localHm, addDays, isoWeekday, diffDays, mondayOf,
     DAYS, DAYS_SHORT, MONTHS, cap, fmtTime, hmLabel, fmtYmd, fmtDate, fmtPrice, fmtDuration,
     computeSlots, overlaps, esc, uuid, storage, googleCalendarUrl,
