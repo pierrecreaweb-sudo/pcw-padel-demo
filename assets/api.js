@@ -166,6 +166,9 @@
       },
       getSiteContent: async (coachId) => unwrap(await sb.from("site_content").select("*").eq("coach_id", coachId).single()),
       saveSiteContent: async (coachId, patch) => unwrap(await sb.from("site_content").update(patch).eq("coach_id", coachId).select().single()),
+      getInvoiceSettings: async (coachId) => unwrap(await sb.from("coach_invoice_settings").select("*").eq("coach_id", coachId).maybeSingle()),
+      saveInvoiceSettings: async (coachId, row) => unwrap(await sb.from("coach_invoice_settings").upsert({ ...row, coach_id: coachId, updated_at: new Date().toISOString() }, { onConflict: "coach_id" }).select().single()),
+      issueClientInvoice: async (id) => unwrap(await sb.rpc("issue_client_invoice", { p_id: id })),
       list: async (table, coachId, order = "position") => {
         let q = sb.from(table).select("*").eq("coach_id", coachId);
         for (const o of String(order).split(",").filter(Boolean)) q = q.order(o.trim());
@@ -722,6 +725,24 @@
         Object.assign(sc, clone(patch));
         save();
         return delay(clone(sc));
+      },
+      getInvoiceSettings: async (coachId) => delay(clone((db.coach_invoice_settings || []).find((x) => x.coach_id === coachId) || null)),
+      saveInvoiceSettings: async (coachId, row) => {
+        db.coach_invoice_settings = db.coach_invoice_settings || [];
+        let r = db.coach_invoice_settings.find((x) => x.coach_id === coachId);
+        if (!r) { r = { coach_id: coachId, next_number: 1 }; db.coach_invoice_settings.push(r); }
+        Object.assign(r, clone(row)); save(); return delay(clone(r));
+      },
+      issueClientInvoice: async (id) => {
+        const inv = (db.client_invoices || []).find((x) => x.id === id);
+        const s = (db.coach_invoice_settings || []).find((x) => x.coach_id === inv.coach_id);
+        if (!inv || inv.status !== "draft") throw new ApiError("Facture déjà émise.", "P0001");
+        if (!s || !s.legal_name || !s.address || !s.siret) throw new ApiError("Renseignez d'abord vos informations de facturation (nom, adresse, SIRET)", "P0001");
+        const n = s.next_number || 1; s.next_number = n + 1;
+        const d = new Date(inv.issue_date + "T12:00:00"); const due = new Date(d.getTime() + (s.payment_terms_days || 30) * 864e5);
+        Object.assign(inv, { status: "issued", number: (s.invoice_prefix || "") + inv.issue_date.slice(0, 4) + "-" + String(n).padStart(4, "0"),
+          due_date: inv.due_date || due.toISOString().slice(0, 10), seller: clone(s) });
+        save(); return delay(clone(inv));
       },
       list: async (table, coachId, order = "position") => {
         const keys = String(order).split(",").map((k) => k.trim()).filter(Boolean);

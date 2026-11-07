@@ -131,7 +131,8 @@
     messages: { label: "Messages", icon: "mail", render: viewMessages },
     prestations: { label: "Prestations et lieux", short: "Prestations", icon: "tag", render: viewServices },
     "mon-site": { label: "Mon site", icon: "brush", render: viewSite },
-    factures: { label: "Mes factures", short: "Factures", icon: "receipt", render: viewInvoices },
+    facturer: { label: "Facturer un client", short: "Facturer", icon: "receipt", render: viewClientInvoices },
+    factures: { label: "Factures PCW", short: "Factures", icon: "receipt", render: viewInvoices },
     reglages: { label: "Réglages", icon: "gear", render: viewSettings },
     pcw: { label: "Console PCW", short: "Console", icon: "chart", render: viewPcw },
   };
@@ -140,7 +141,7 @@
   const NAV_GROUPS = [
     { title: null, keys: ["dashboard"] },
     { title: "Au quotidien", keys: ["reservations", "agenda", "stages", "messages", "joueurs"] },
-    { title: "Mon activité", keys: ["statistiques", "avis"] },
+    { title: "Mon activité", keys: ["statistiques", "avis", "facturer"] },
     { title: "Ma vitrine", keys: ["partager", "mon-site", "prestations"] },
     { title: "Compte", keys: ["factures", "reglages"] },
   ];
@@ -1043,6 +1044,238 @@
     } catch (e) { toast(errMsg(e)); }
   }
 
+  // ======================================================= factures clients ===
+  // Le coach facture ses propres clients (entreprises, séminaires...). Distinct de « Factures PCW » (abonnement).
+  const CI_ST = { draft: ["neutral", "Brouillon"], issued: ["pending", "À payer"], paid: ["paid", "Payée"], cancelled: ["cancelled", "Annulée"] };
+  const ciCents = (v) => Math.max(0, Math.round(parseFloat(String(v || "0").replace(",", ".")) * 100) || 0);
+  const ciEur = (c) => (c / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" });
+  function ciTotals(lines, vatMode) {
+    let ht = 0, vat = 0;
+    for (const l of lines) {
+      const lh = Math.round((Number(l.qty) || 0) * (Number(l.unit_price_cents) || 0));
+      ht += lh; vat += vatMode === "vat" ? Math.round(lh * (Number(l.vat_rate) || 0) / 100) : 0;
+    }
+    return { ht, vat, ttc: ht + vat };
+  }
+  const ciReady = () => { const s = S.cis; return Boolean(s && s.legal_name && s.address && s.siret); };
+  function viewClientInvoices() {
+    const list = [...(S.ci || [])].sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+    const due = list.filter((i) => i.status === "issued");
+    const open = due.reduce((a, i) => a + i.total_ttc_cents, 0);
+    return `<div class="page__head"><div><h1>Facturer un client</h1><p>Créez vos propres factures : entreprises, séminaires, stages privés... Chaque facture a un numéro qui se suit, sans trou.</p></div>
+        <div class="btn-row"><button class="btn" data-action="ci-settings">Mes informations</button><button class="btn btn--primary" data-action="ci-new">${icon("plus")} Nouvelle facture</button></div></div>
+      ${ciReady() ? "" : `<div class="alert">Avant d'émettre une facture, renseignez <b>vos informations de facturation</b> (nom, adresse, SIRET). <button class="btn btn--sm" data-action="ci-settings">Les renseigner</button></div>`}
+      ${due.length ? `<p class="muted" style="margin:0 0 10px">${due.length} facture${due.length > 1 ? "s" : ""} à encaisser : <b>${esc(ciEur(open))}</b></p>` : ""}
+      <section class="card" id="ci-box">${S.ciLoaded !== S.coach.id ? `<div class="empty">Chargement…</div>` : list.length ? `<div class="rows">${list.map((i) => `<button type="button" class="row" style="grid-template-columns:minmax(0,1fr) auto" data-action="ci-open" data-id="${i.id}">
+        <span class="row__main"><span class="row__title">${esc(i.number || "Brouillon")} · ${esc(i.customer_name || "Client à renseigner")}</span>
+          <span class="row__sub">${esc(dFr(i.issue_date))}${i.object ? " · " + esc(i.object) : ""}</span></span>
+        <span class="row__end"><b class="num">${esc(ciEur(i.total_ttc_cents))}</b> ${pill(...(CI_ST[i.status] || CI_ST.draft))}</span></button>`).join("")}</div>`
+        : `<div class="empty">Aucune facture. Cliquez sur « Nouvelle facture » pour en créer une.</div>`}</section>
+      <p class="muted" style="font-size:13px">Une facture émise ne peut plus être modifiée : si vous vous êtes trompé, annulez-la puis refaites-en une.</p>`;
+  }
+  AFTER.facturer = async (page) => {
+    if (S.ciLoaded === S.coach.id) return;
+    try {
+      const [inv, set] = await Promise.all([S.api.list("client_invoices", S.coach.id, "created_at").catch(() => []), S.api.getInvoiceSettings(S.coach.id).catch(() => null)]);
+      S.ci = inv; S.cis = set; S.ciLoaded = S.coach.id;
+      if (currentView() === "facturer") { const p = document.getElementById("page"); if (p) { const note = p.querySelector(".demo-note"); p.innerHTML = (note ? note.outerHTML : "") + viewClientInvoices(); } }
+    } catch (e) { toast(errMsg(e)); }
+  };
+  function ciSettingsDrawer() {
+    const c = (S.site && S.site.content) || {};
+    const s = { legal_name: c.legal_name || "", address: c.legal_address || "", siret: c.siret || "", email: c.email || "", phone: c.phone || "",
+      legal_form: "", vat_mode: "franchise", vat_rate: 20, vat_number: "", iban: "", bic: "", payment_terms_days: 30, invoice_prefix: "F", next_number: 1, footer_note: "", ...(S.cis || {}) };
+    const v = (k, label, extra = "") => `<label class="field"><span>${label}</span><input type="text" id="cs-${k}" maxlength="120" value="${esc(s[k] ?? "")}" ${extra}></label>`;
+    openDrawer({
+      title: "Mes informations de facturation",
+      body: `<p class="muted" style="margin-top:0">Ces informations apparaissent sur toutes vos factures. Elles sont figées sur chaque facture au moment de l'émission.</p>
+        <form class="form-grid" onsubmit="return false">
+          ${v("legal_name", "Nom ou raison sociale")}${v("legal_form", "Forme (EI, micro-entreprise, SASU...)")}
+          <label class="field full"><span>Adresse</span><textarea id="cs-address" rows="2" maxlength="250">${esc(s.address)}</textarea></label>
+          ${v("siret", "SIRET")}${v("email", "Email")}${v("phone", "Téléphone")}
+          <label class="field"><span>TVA</span><select id="cs-vat_mode"><option value="franchise" ${s.vat_mode === "franchise" ? "selected" : ""}>Non applicable (franchise en base)</option><option value="vat" ${s.vat_mode === "vat" ? "selected" : ""}>Je facture la TVA</option></select></label>
+          <label class="field"><span>Taux de TVA par défaut (%)</span><input type="number" id="cs-vat_rate" min="0" max="30" step="0.5" value="${esc(s.vat_rate)}"></label>
+          ${v("vat_number", "N° de TVA intracommunautaire")}
+          ${v("iban", "IBAN (pour le virement)")}${v("bic", "BIC")}
+          <label class="field"><span>Délai de paiement (jours)</span><input type="number" id="cs-payment_terms_days" min="0" max="90" value="${esc(s.payment_terms_days)}"></label>
+          <label class="field"><span>Début du numéro</span><input type="text" id="cs-invoice_prefix" maxlength="6" value="${esc(s.invoice_prefix)}"><small class="muted">Ex. F → F2026-0001</small></label>
+          <label class="field full"><span>Mention en bas de facture (facultatif)</span><textarea id="cs-footer_note" rows="2" maxlength="300">${esc(s.footer_note)}</textarea></label>
+        </form>`,
+      foot: `<button class="btn btn--primary" data-action="ci-settings-save">Enregistrer</button>`,
+    });
+  }
+  async function ciSettingsSave() {
+    const g = (k) => (document.getElementById("cs-" + k) || {}).value || "";
+    const row = { legal_name: g("legal_name").trim(), legal_form: g("legal_form").trim(), address: g("address").trim(), siret: g("siret").trim(), email: g("email").trim(), phone: g("phone").trim(),
+      vat_mode: g("vat_mode") === "vat" ? "vat" : "franchise", vat_rate: Math.min(30, Math.max(0, parseFloat(g("vat_rate").replace(",", ".")) || 0)), vat_number: g("vat_number").trim(),
+      iban: g("iban").trim(), bic: g("bic").trim(), payment_terms_days: Math.min(90, Math.max(0, parseInt(g("payment_terms_days"), 10) || 0)),
+      invoice_prefix: g("invoice_prefix").trim().replace(/[^A-Za-z0-9]/g, "").slice(0, 6), footer_note: g("footer_note").trim() };
+    if (!row.legal_name || !row.address || !row.siret) return toast("Nom, adresse et SIRET sont obligatoires.");
+    try { S.cis = await S.api.saveInvoiceSettings(S.coach.id, row); closeDrawer(); toast("Informations enregistrées"); render(); }
+    catch (e) { toast(errMsg(e)); }
+  }
+  function ciLineRow(l, k, vatMode) {
+    return `<div class="ci-line" data-k="${k}" style="display:grid;grid-template-columns:minmax(0,1fr) 60px 90px ${vatMode === "vat" ? "60px " : ""}32px;gap:6px;align-items:end;margin-bottom:8px">
+      <label class="field" style="margin:0"><span>${k === 0 ? "Désignation" : "&nbsp;"}</span><input type="text" class="ci-d" maxlength="200" value="${esc(l.description || "")}" placeholder="Séminaire padel, 2 h"></label>
+      <label class="field" style="margin:0"><span>${k === 0 ? "Qté" : "&nbsp;"}</span><input type="number" class="ci-q" min="0" step="any" inputmode="decimal" value="${esc(l.qty ?? 1)}"></label>
+      <label class="field" style="margin:0"><span>${k === 0 ? "PU HT (€)" : "&nbsp;"}</span><input type="number" class="ci-p" min="0" step="0.01" inputmode="decimal" value="${l.unit_price_cents ? (l.unit_price_cents / 100).toString() : ""}"></label>
+      ${vatMode === "vat" ? `<label class="field" style="margin:0"><span>${k === 0 ? "TVA %" : "&nbsp;"}</span><input type="number" class="ci-v" min="0" max="30" step="0.5" value="${esc(l.vat_rate ?? 20)}"></label>` : ""}
+      <button type="button" class="btn btn--sm" data-action="ci-line-del" data-k="${k}" aria-label="Supprimer la ligne">✕</button></div>`;
+  }
+  function ciReadLines() {
+    return [...document.querySelectorAll("#ci-lines .ci-line")].map((r) => ({
+      description: r.querySelector(".ci-d").value.trim(), qty: parseFloat(String(r.querySelector(".ci-q").value).replace(",", ".")) || 0,
+      unit_price_cents: ciCents(r.querySelector(".ci-p").value), vat_rate: r.querySelector(".ci-v") ? parseFloat(r.querySelector(".ci-v").value) || 0 : 0 }));
+  }
+  function ciPaintLines(lines) {
+    const vm = (S.cis && S.cis.vat_mode) || "franchise";
+    document.getElementById("ci-lines").innerHTML = lines.map((l, k) => ciLineRow(l, k, vm)).join("");
+    ciPaintTotals();
+  }
+  function ciPaintTotals() {
+    const vm = (S.cis && S.cis.vat_mode) || "franchise"; const t = ciTotals(ciReadLines(), vm); const el = document.getElementById("ci-totals");
+    if (el) el.innerHTML = vm === "vat" ? `Total HT ${esc(ciEur(t.ht))} · TVA ${esc(ciEur(t.vat))} · <b>Total TTC ${esc(ciEur(t.ttc))}</b>` : `<b>Total à payer ${esc(ciEur(t.ht))}</b> <span class="muted">(TVA non applicable)</span>`;
+  }
+  function ciDrawer(id) {
+    const i = id ? S.ci.find((x) => x.id === id) : null;
+    if (i && i.status !== "draft") return ciViewDrawer(i);
+    const vm = (S.cis && S.cis.vat_mode) || "franchise", rate = (S.cis && S.cis.vat_rate) || 20;
+    const d = i || { customer_name: "", customer_address: "", customer_siret: "", customer_vat: "", customer_email: "", object: "", issue_date: todayYmd(), due_date: "", notes: "", lines: [{ description: "", qty: 1, unit_price_cents: 0, vat_rate: rate }] };
+    openDrawer({
+      title: i ? "Modifier le brouillon" : "Nouvelle facture", wide: true,
+      body: `<form class="form-grid" onsubmit="return false">
+          <label class="field full"><span>Client (nom ou entreprise)</span><input type="text" id="ci-name" maxlength="150" value="${esc(d.customer_name)}" placeholder="Société Dupont"></label>
+          <label class="field full"><span>Adresse du client</span><textarea id="ci-addr" rows="2" maxlength="250">${esc(d.customer_address)}</textarea></label>
+          <label class="field"><span>SIRET du client <small>(entreprise)</small></span><input type="text" id="ci-siret" maxlength="25" value="${esc(d.customer_siret)}"></label>
+          <label class="field"><span>N° de TVA du client <small>(facultatif)</small></span><input type="text" id="ci-vatn" maxlength="30" value="${esc(d.customer_vat)}"></label>
+          <label class="field full"><span>Email du client <small>(pour l'envoi)</small></span><input type="email" id="ci-email" maxlength="120" value="${esc(d.customer_email)}"></label>
+          <label class="field full"><span>Objet</span><input type="text" id="ci-obj" maxlength="200" value="${esc(d.object)}" placeholder="Séminaire team building du 12 mars"></label>
+          <label class="field"><span>Date de la facture</span><input type="date" id="ci-date" value="${esc(d.issue_date)}"></label>
+          <label class="field"><span>Échéance <small>(facultatif)</small></span><input type="date" id="ci-due" value="${esc(d.due_date || "")}"></label>
+          <div class="full"><h3 style="margin:6px 0 8px;font-size:15px">Lignes</h3><div id="ci-lines"></div>
+            <div class="btn-row"><button type="button" class="btn btn--sm" data-action="ci-line-add">${icon("plus")} Ajouter une ligne</button>
+              ${S.services.length ? `<select id="ci-svc" class="btn btn--sm" data-action="ci-line-svc" aria-label="Ajouter une prestation"><option value="">+ Une de mes prestations…</option>${S.services.map((s) => `<option value="${s.id}">${esc(s.name)} · ${esc(euros(s.price_cents))}</option>`).join("")}</select>` : ""}</div>
+            <p id="ci-totals" style="margin:12px 0 0;font-size:15px"></p></div>
+          <label class="field full"><span>Remarque sur la facture <small>(facultatif)</small></span><textarea id="ci-notes" rows="2" maxlength="500">${esc(d.notes)}</textarea></label>
+        </form>`,
+      foot: `<button class="btn btn--primary" data-action="ci-save" data-id="${id || ""}">Enregistrer le brouillon</button><button class="btn" data-action="ci-issue" data-id="${id || ""}">Émettre la facture</button>${id ? `<button class="btn btn--danger" data-action="ci-del" data-id="${id}">Supprimer</button>` : ""}`,
+      onMount: () => { ciPaintLines(d.lines && d.lines.length ? d.lines : [{ description: "", qty: 1, unit_price_cents: 0, vat_rate: rate }]); document.getElementById("ci-lines").addEventListener("input", ciPaintTotals); },
+    });
+  }
+  async function ciSave(id, thenIssue) {
+    const g = (x) => document.getElementById(x).value;
+    const lines = ciReadLines().filter((l) => l.description || l.unit_price_cents);
+    const row = { customer_name: g("ci-name").trim(), customer_address: g("ci-addr").trim(), customer_siret: g("ci-siret").trim(), customer_vat: g("ci-vatn").trim(), customer_email: g("ci-email").trim(),
+      object: g("ci-obj").trim(), issue_date: g("ci-date") || todayYmd(), due_date: g("ci-due") || null, notes: g("ci-notes").trim(), lines };
+    if (!row.customer_name) return toast("Indiquez le nom du client.");
+    if (lines.some((l) => !l.description)) return toast("Chaque ligne a besoin d'une désignation.");
+    if (thenIssue && !lines.length) return toast("Ajoutez au moins une ligne.");
+    const t = ciTotals(lines, (S.cis && S.cis.vat_mode) || "franchise");
+    Object.assign(row, { total_ht_cents: t.ht, total_vat_cents: t.vat, total_ttc_cents: t.ttc });
+    try {
+      let r;
+      if (id) { r = await S.api.update("client_invoices", id, row); S.ci[S.ci.findIndex((x) => x.id === id)] = r; }
+      else { r = await S.api.insert("client_invoices", { ...row, coach_id: S.coach.id, status: "draft", number: null, paid_at: null, payment_method: "", seller: null }); S.ci.push(r); }
+      return r;
+    } catch (e) { toast(errMsg(e)); return null; }
+  }
+  function ciViewDrawer(i, confirm) {
+    const sel = i.seller || {};
+    const pay = i.status === "issued" ? `<div class="form-grid" style="margin-top:14px"><label class="field"><span>Payée le</span><input type="date" id="ci-paid-on" value="${todayYmd()}"></label>
+        <label class="field"><span>Moyen de paiement</span><select id="ci-paid-m"><option>Virement</option><option>Chèque</option><option>Espèces</option><option>Carte</option></select></label></div>` : "";
+    openDrawer({
+      title: i.number || "Facture",
+      body: `${confirm ? `<div class="confirm-box">Annuler la facture ${esc(i.number)} ? Elle reste dans la liste, marquée « Annulée », et son numéro n'est pas réutilisé.
+          <div class="btn-row"><button class="btn" data-action="ci-open" data-id="${i.id}">Non, garder</button><button class="btn btn--dark" data-action="ci-cancel" data-id="${i.id}">Oui, annuler</button></div></div>` : ""}
+        <dl class="kv"><dt>Statut</dt><dd>${pill(...(CI_ST[i.status] || CI_ST.draft))}</dd><dt>Client</dt><dd>${esc(i.customer_name)}</dd><dt>Date</dt><dd>${esc(dFr(i.issue_date))}</dd><dt>Échéance</dt><dd>${esc(dFr(i.due_date))}</dd>
+          ${i.object ? `<dt>Objet</dt><dd>${esc(i.object)}</dd>` : ""}<dt>Total</dt><dd>${esc(ciEur(i.total_ttc_cents))}</dd>
+          ${i.status === "paid" ? `<dt>Payée le</dt><dd>${esc(dFr(i.paid_at))}${i.payment_method ? " · " + esc(i.payment_method) : ""}</dd>` : ""}</dl>${pay}`,
+      foot: `<button class="btn btn--primary" data-action="ci-print" data-id="${i.id}">Voir / imprimer (PDF)</button>
+        ${i.customer_email ? `<button class="btn" data-action="ci-mail" data-id="${i.id}">Envoyer par email</button>` : ""}
+        ${i.status === "issued" ? `<button class="btn" data-action="ci-paid" data-id="${i.id}">Marquer payée</button>` : ""}
+        ${i.status === "paid" ? `<button class="btn" data-action="ci-unpaid" data-id="${i.id}">Remettre à payer</button>` : ""}
+        ${i.status !== "cancelled" ? `<button class="btn btn--danger" data-action="ci-ask-cancel" data-id="${i.id}">Annuler la facture</button>` : ""}`,
+    });
+  }
+  function clientInvoiceHtml(i) {
+    const s = i.seller || S.cis || {}; const th = (S.site && S.site.theme) || {};
+    const col = /^#[0-9a-f]{6}$/i.test(th.primary || "") ? th.primary : "#0E2A52";
+    const vm = s.vat_mode === "vat";
+    const rows = (i.lines || []).map((l, k) => { const lh = Math.round(l.qty * l.unit_price_cents);
+      return `<tr class="${k % 2 ? "" : "alt"}"><td>${esc(l.description)}</td><td class="r">${esc(String(l.qty).replace(".", ","))}</td><td class="r">${esc(ciEur(l.unit_price_cents))}</td>${vm ? `<td class="r">${esc(String(l.vat_rate || 0).replace(".", ","))} %</td>` : ""}<td class="r">${esc(ciEur(lh))}</td></tr>`; }).join("");
+    const sellerL = [s.legal_name + (s.legal_form ? " (" + s.legal_form + ")" : ""), s.address, "SIRET " + s.siret, vm && s.vat_number ? "TVA " + s.vat_number : "", s.email, s.phone].filter(Boolean).flatMap((x) => String(x).split("\n"));
+    const custL = [i.customer_name, i.customer_address, i.customer_siret ? "SIRET " + i.customer_siret : "", i.customer_vat ? "TVA " + i.customer_vat : ""].filter(Boolean).flatMap((x) => String(x).split("\n"));
+    const stamp = i.status === "paid" ? ["PAYÉE", "#c9ead8"] : i.status === "cancelled" ? ["ANNULÉE", "#e4e6ec"] : i.status === "draft" ? ["BROUILLON", "#e4e6ec"] : null;
+    const bank = s.iban ? `<div class="box"><div class="k">RÈGLEMENT PAR VIREMENT</div><div class="big">IBAN : ${esc(s.iban)}${s.bic ? " · BIC : " + esc(s.bic) : ""}</div><div class="small">Référence à indiquer : <b>${esc(i.number || "")}</b></div></div>` : "";
+    const logo = th.logo_url ? `<img class="logo" src="${esc(th.logo_url)}" alt="">` : "";
+    return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Facture ${esc(i.number || "brouillon")}</title><style>
+      @page { size: A4; margin: 0; } * { box-sizing: border-box; }
+      body { margin: 0; background: #e9edf3; font: 11pt/1.35 Helvetica, Arial, sans-serif; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .bar { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; justify-content: center; padding: 10px; background: #fff; border-bottom: 1px solid #ccd3df; }
+      .bar button { font: 700 14px Arial, sans-serif; padding: 9px 14px; border-radius: 8px; border: 1px solid ${col}; background: ${col}; color: #fff; cursor: pointer; }
+      .page { position: relative; width: 210mm; min-height: 297mm; margin: 12px auto; background: #fff; overflow: hidden; padding-bottom: 30mm; box-shadow: 0 2px 14px rgba(0,0,0,.15); }
+      .band { position: relative; min-height: 36mm; background: ${col}; color: #fff; padding: 8mm 16mm; display: flex; justify-content: space-between; gap: 10mm; align-items: center; }
+      .logo { height: 20mm; max-width: 40mm; object-fit: contain; border-radius: 3mm; background: #fff; padding: 1mm; }
+      .ttl { font-size: 22pt; font-weight: 700; } .iss { text-align: right; font-size: 8.3pt; line-height: 4.2mm; }
+      .in { padding: 0 16mm; } .info { margin: 9mm 0 5mm; font-size: 10pt; color: #5a5a5a; }
+      .box { border: 1px solid #e0e3eb; background: #f7f8fc; border-radius: 2.5mm; padding: 4mm 5mm; margin-bottom: 4mm; }
+      .k { font-size: 9.5pt; color: #787878; margin-bottom: 2mm; } .cl { font-size: 10.5pt; line-height: 5.6mm; }
+      h2 { font-size: 12pt; margin: 7mm 0 3mm; font-weight: 400; } table { width: 100%; border-collapse: collapse; }
+      th { background: ${col}; color: #fff; font-size: 8.5pt; text-align: left; padding: 2.4mm 4mm; font-weight: 400; }
+      td { padding: 2mm 4mm; font-size: 10pt; } tr.alt td { background: #f7f8fc; } .r { text-align: right; }
+      hr { border: 0; border-top: 1px solid #d2d2d2; margin: 3mm 0 5mm; }
+      .tot { margin-left: auto; width: 80mm; font-size: 10.5pt; } .tot div { display: flex; justify-content: space-between; padding: 1mm 4mm; } .tot .net { font-size: 13pt; font-weight: 700; }
+      .tva { font-size: 9pt; color: #5a5a5a; margin: 2mm 0 5mm 4mm; } .big { font-size: 11pt; line-height: 6mm; } .small { font-size: 9pt; color: #5a5a5a; }
+      .cond { margin-top: 6mm; font-size: 8.5pt; color: #444; line-height: 1.45; }
+      .stamp { position: absolute; left: 0; right: 0; top: 125mm; text-align: center; font-size: 54pt; font-weight: 700; transform: rotate(-25deg); pointer-events: none; }
+      @media print { body { background: #fff; } .bar { display: none; } .page { margin: 0; box-shadow: none; } }
+    </style></head><body><div class="bar"><button onclick="window.print()">Imprimer / enregistrer en PDF</button></div>
+      <div class="page"><div class="band">${logo}<div class="ttl">FACTURE</div><div class="iss">${sellerL.map(esc).join("<br>")}</div></div>
+        ${stamp ? `<div class="stamp" style="color:${stamp[1]}">${stamp[0]}</div>` : ""}
+        <div class="in"><div class="info">N° : <b>${esc(i.number || "—")}</b> &nbsp;&nbsp; Date : ${esc(dFr(i.issue_date))} &nbsp;&nbsp; Échéance : ${esc(dFr(i.due_date || (i.status === "draft" ? "" : i.issue_date)))}</div>
+          <div class="box"><div class="k">FACTURÉ À</div><div class="cl">${custL.map(esc).join("<br>") || "&nbsp;"}</div></div>
+          ${i.object ? `<div class="big"><b>Objet :</b> ${esc(i.object)}</div>` : ""}
+          <h2>Détail</h2><table><thead><tr><th>DÉSIGNATION</th><th class="r">QTÉ</th><th class="r">PU HT</th>${vm ? '<th class="r">TVA</th>' : ""}<th class="r">TOTAL HT</th></tr></thead><tbody>${rows}</tbody></table><hr>
+          <div class="tot">${vm ? `<div><span>Total HT</span><span>${esc(ciEur(i.total_ht_cents))}</span></div><div><span>TVA</span><span>${esc(ciEur(i.total_vat_cents))}</span></div>` : ""}
+            <div class="net"><span>${i.status === "paid" ? "Acquittée" : vm ? "Total TTC" : "Net à payer"}</span><span>${esc(ciEur(i.total_ttc_cents))}</span></div></div>
+          ${vm ? "" : `<p class="tva">TVA non applicable, art. 293 B du CGI</p>`}
+          ${i.status === "paid" ? `<p class="big">Facture acquittée le ${esc(dFr(i.paid_at))}${i.payment_method ? " (" + esc(i.payment_method) + ")" : ""}.</p>` : bank}
+          ${i.notes ? `<p class="small" style="margin-top:4mm">${esc(i.notes).replace(/\n/g, "<br>")}</p>` : ""}
+          <div class="cond">Pas d'escompte pour règlement anticipé. En cas de retard de paiement : pénalités au taux de trois fois le taux d'intérêt légal${i.customer_siret ? " et indemnité forfaitaire de 40 € pour frais de recouvrement (art. L441-10 du Code de commerce)" : ""}.${s.footer_note ? "<br>" + esc(s.footer_note) : ""}</div>
+        </div></div></body></html>`;
+  }
+  const CI_ACTIONS = {
+    "ci-settings": () => ciSettingsDrawer(),
+    "ci-settings-save": () => ciSettingsSave(),
+    "ci-new": () => ciDrawer(null),
+    "ci-open": (el) => ciDrawer(el.dataset.id),
+    "ci-line-add": () => { const l = ciReadLines(); l.push({ description: "", qty: 1, unit_price_cents: 0, vat_rate: (S.cis && S.cis.vat_rate) || 20 }); ciPaintLines(l); },
+    "ci-line-del": (el) => { const l = ciReadLines(); l.splice(Number(el.dataset.k), 1); ciPaintLines(l.length ? l : [{ description: "", qty: 1, unit_price_cents: 0, vat_rate: 20 }]); },
+    "ci-line-svc": (el) => { const s = S.services.find((x) => x.id === el.value); if (!s) return; const l = ciReadLines().filter((x) => x.description || x.unit_price_cents);
+      l.push({ description: s.name, qty: 1, unit_price_cents: s.price_cents || 0, vat_rate: (S.cis && S.cis.vat_rate) || 20 }); ciPaintLines(l); el.value = ""; },
+    "ci-save": async (el) => { const r = await ciSave(el.dataset.id || null); if (r) { closeDrawer(); toast("Brouillon enregistré"); render(); } },
+    "ci-issue": async (el) => {
+      const r = await ciSave(el.dataset.id || null, true); if (!r) return;
+      if (!ciReady()) { toast("Brouillon enregistré. Renseignez d'abord vos informations de facturation, puis émettez la facture."); render(); return ciSettingsDrawer(); }
+      try { const out = await S.api.issueClientInvoice(r.id); S.ci[S.ci.findIndex((x) => x.id === r.id)] = out; closeDrawer(); toast(`Facture ${out.number} émise`); render(); ciViewDrawer(out); }
+      catch (e) { toast(errMsg(e)); }
+    },
+    "ci-del": async (el) => { try { await S.api.remove("client_invoices", el.dataset.id); S.ci = S.ci.filter((x) => x.id !== el.dataset.id); closeDrawer(); toast("Brouillon supprimé"); render(); } catch (e) { toast(errMsg(e)); } },
+    "ci-print": (el) => { const i = S.ci.find((x) => x.id === el.dataset.id); if (!i) return; const w = window.open("", "_blank"); if (!w) return toast("Autorisez les fenêtres pop-up pour afficher la facture."); w.document.open(); w.document.write(clientInvoiceHtml(i)); w.document.close(); },
+    "ci-mail": (el) => { const i = S.ci.find((x) => x.id === el.dataset.id); if (!i) return;
+      const body = `Bonjour,\n\nVeuillez trouver ci-joint la facture ${i.number} d'un montant de ${ciEur(i.total_ttc_cents)}, à régler avant le ${dFr(i.due_date)}.\n\nCordialement,\n${(i.seller || {}).legal_name || ""}`;
+      location.href = `mailto:${encodeURIComponent(i.customer_email)}?subject=${encodeURIComponent("Facture " + i.number)}&body=${encodeURIComponent(body)}`;
+      toast("Votre messagerie s'ouvre : joignez le PDF (Voir / imprimer, puis Enregistrer en PDF)."); },
+    "ci-paid": async (el) => ciPatch(el.dataset.id, { status: "paid", paid_at: (document.getElementById("ci-paid-on") || {}).value || todayYmd(), payment_method: (document.getElementById("ci-paid-m") || {}).value || "" }, "Facture marquée payée"),
+    "ci-unpaid": async (el) => ciPatch(el.dataset.id, { status: "issued", paid_at: null, payment_method: "" }, "Facture remise à payer"),
+    "ci-ask-cancel": (el) => ciViewDrawer(S.ci.find((x) => x.id === el.dataset.id), true),
+    "ci-cancel": async (el) => ciPatch(el.dataset.id, { status: "cancelled" }, "Facture annulée"),
+  };
+  async function ciPatch(id, patch, msg) {
+    try { const r = await S.api.update("client_invoices", id, patch); S.ci[S.ci.findIndex((x) => x.id === id)] = r; closeDrawer(); toast(msg); render(); }
+    catch (e) { toast(errMsg(e)); }
+  }
+
   // ================================================================= packs ===
   const packLeft = (pp) => pp.sessions_total - pp.sessions_used;
   const packExpired = (pp) => pp.expires_at && pp.expires_at < todayYmd();
@@ -1747,7 +1980,7 @@
 
   // ================================================================ mes factures (coach) ===
   function viewInvoices() {
-    return `<div class="page__head"><div><h1>Mes factures</h1><p>Vos factures d'abonnement PCW Padel Coach.</p></div></div><div id="inv-box"><p class="muted">Chargement…</p></div>`;
+    return `<div class="page__head"><div><h1>Factures PCW</h1><p>Vos factures d'abonnement PCW Padel Coach.</p></div></div><div id="inv-box"><p class="muted">Chargement…</p></div>`;
   }
   function invoiceCardsHtml(data) {
     const inv = data.invoices || [], pay = data.payment || {};
@@ -3345,6 +3578,7 @@
   const ACTIONS = {
     ...PCW_ACTIONS,
     ...PUSH_ACTIONS,
+    ...CI_ACTIONS,
     "sign-out": async () => { await S.api.signOut(); S.user = null; S.coach = null; S.pcw = null; S.isAdmin = false; closeDrawer(); render(); },
     "reset-demo": async () => { S.api.reset(); await afterSignIn(); toast("Démo réinitialisée"); },
     "magic-link": async () => {
@@ -3383,11 +3617,11 @@
         <span class="sheet-menu__group">Au quotidien</span>
         <a href="#stages" data-navkey="stages">${icon("flag")} Stages</a><a href="#joueurs">${icon(VIEWS.joueurs.icon)} Joueurs</a>
         <span class="sheet-menu__group">Mon activité</span>
-        <a href="#statistiques">${icon("chart")} Statistiques</a><a href="#avis" data-navkey="avis">${icon("star")} Avis des élèves</a>
+        <a href="#statistiques">${icon("chart")} Statistiques</a><a href="#avis" data-navkey="avis">${icon("star")} Avis des élèves</a><a href="#facturer">${icon("receipt")} Facturer un client</a>
         <span class="sheet-menu__group">Ma vitrine</span>
         <a href="#partager">${icon("share")} Partager ma page</a><a href="#mon-site">${icon("brush")} Mon site</a><a href="#prestations">${icon("tag")} Prestations et lieux</a>
         <span class="sheet-menu__group">Compte</span>
-        <a href="#factures" data-navkey="factures">${icon("receipt")} Mes factures</a><a href="#reglages">${icon("gear")} Réglages</a>
+        <a href="#factures" data-navkey="factures">${icon("receipt")} Factures PCW</a><a href="#reglages">${icon("gear")} Réglages</a>
         ${S.isAdmin && S.api.mode !== "demo" ? `<span class="sheet-menu__group">Plateforme PCW</span><a href="#pcw" data-navkey="console">${icon("left")} Retour à la console PCW</a>` : ""}
         <a href="../index.html?c=${encodeURIComponent(S.coach.slug)}" target="_blank" rel="noopener">${icon("ext")} Voir mon site</a>
         <a href="../aide.html" target="_blank" rel="noopener">${icon("ext")} Aide et contact</a>
@@ -3634,10 +3868,13 @@
     if (t.dataset.message && !t.dataset.action) { messageDrawer(t.dataset.message); return; }
     if (t.dataset.booking && !t.dataset.action) { bookingDrawer(t.dataset.booking); return; }
     if (t.dataset.player && !t.dataset.action) { playerDrawer(t.dataset.player); return; }
+    if (t.dataset.action === "ci-line-svc") return;
     const fn = ACTIONS[t.dataset.action];
     if (fn) { e.preventDefault(); try { await fn(t); } catch (err) { console.error(err); } }
   });
   document.addEventListener("change", async (e) => {
+    const svc = e.target.closest && e.target.closest('[data-action="ci-line-svc"]');
+    if (svc) { CI_ACTIONS["ci-line-svc"](svc); return; }
     const sel = e.target.closest && e.target.closest("[data-booking-pack]");
     if (!sel) return;
     try { await patchBooking(sel.dataset.bookingPack, { player_pack_id: sel.value || null }, sel.value ? "Séance rattachée au pack" : "Séance détachée du pack"); }
