@@ -1987,7 +1987,7 @@
     if (!inv.length) return `<section class="card"><div class="empty">Aucune facture pour le moment. Vos factures PCW apparaîtront ici dès qu'elles seront émises.</div></section>`;
     const due = inv.filter((i) => i.status === "issued");
     const total = due.reduce((n, i) => n + i.total_cents, 0);
-    const kindLabel = { setup: "Mise en place du site", monthly: "Abonnement mensuel", other: "Facture" };
+    const kindLabel = { monthly: "Abonnement mensuel", other: "Facture" };
     const summary = due.length
       ? `<div class="inv-summary inv-summary--due"><b>${due.length} facture${due.length > 1 ? "s" : ""} à régler</b><span>${eur0(total)} au total</span></div>`
       : `<div class="inv-summary inv-summary--ok"><b>Tout est réglé</b><span>Merci !</span></div>`;
@@ -2285,7 +2285,6 @@
         ${kpi("Impayés", d.overdue.count ? eur0(d.overdue.cents) : "0", d.overdue.count ? `${d.overdue.count} abonnement${d.overdue.count > 1 ? "s" : ""} en retard` : "Rien en retard", d.overdue.count ? "kpi--alert" : "")}
       </div>
       <div class="kpis">
-        ${kpi("Mises en ligne offertes", `${d.waived_setups}<small style="font-size:14px;font-weight:600"> / 10</small>`, "Offre des 10 premiers coachs")}
         <button type="button" class="kpi ${d.pending_testimonials ? "kpi--alert" : ""}" data-action="pcw-tab" data-tab="reviews"><span class="kpi__label">Avis de coachs</span><span class="kpi__value">${d.pending_testimonials}</span><span class="kpi__sub">à valider</span></button>
         ${kpi("Avis signalés", d.reported_reviews, "Avis d'élèves signalés par les coachs", d.reported_reviews ? "kpi--alert" : "")}
       </div>
@@ -2357,16 +2356,14 @@
     const row = (c) => {
       const bl = c.billing || {};
       const late = bl.paid_until && bl.paid_until < ymdToday() && ["active", "overdue"].includes(bl.plan_status);
-      const setup = bl.setup_waived ? "mise en ligne offerte" : bl.setup_paid_at ? `mise en ligne payée le ${dFr(bl.setup_paid_at)}` : `mise en ligne ${eur0(bl.setup_fee_cents)} à régler`;
       return `<button type="button" class="row row--wrap" data-action="pcw-billing" data-id="${c.id}">
         <span class="row__main"><span class="row__title">${esc(c.display_name)}</span>
-          <span class="row__sub">${eur0(bl.monthly_cents)}/mois · ${bl.paid_until ? `payé jusqu'au ${dFr(bl.paid_until)}${late ? " (dépassé)" : ""}` : "aucun paiement noté"} · ${setup}</span></span>
+          <span class="row__sub">${eur0(bl.monthly_cents)}/mois · ${bl.paid_until ? `payé jusqu'au ${dFr(bl.paid_until)}${late ? " (dépassé)" : ""}` : "aucun paiement noté"}</span></span>
         <span class="row__end">${pill(...(PLAN[bl.plan_status] || PLAN.pending))}</span></button>`;
     };
     return `<div class="kpis kpis--stats">
         <div class="kpi"><span class="kpi__label">Revenu mensuel</span><span class="kpi__value">${eur0(d.mrr_cents)}</span><span class="kpi__sub">Abonnements actifs</span></div>
         <div class="kpi ${d.overdue.count ? "kpi--alert" : ""}"><span class="kpi__label">En retard</span><span class="kpi__value">${d.overdue.count ? eur0(d.overdue.cents) : "0"}</span><span class="kpi__sub">${d.overdue.count} abonnement${d.overdue.count > 1 ? "s" : ""}</span></div>
-        <div class="kpi"><span class="kpi__label">Offres de lancement</span><span class="kpi__value">${d.waived_setups} / 10</span><span class="kpi__sub">Mises en ligne offertes</span></div>
       </div>
       <p class="muted" style="margin:0 0 10px;font-size:13px">Suivi à la main jusqu'au paiement en ligne (lot 3). Ouvrez un coach pour noter un paiement ou modifier son contrat.</p>
       <section class="card">${list.length ? `<div class="rows">${list.map(row).join("")}</div>` : `<div class="empty">Aucun coach client.</div>`}</section>
@@ -2392,7 +2389,6 @@
           <label class="field"><span>Banque (facultatif)</span><input type="text" id="st-bank" maxlength="80" value="${esc(st.bank_name || "")}"></label>
           <label class="field"><span>Mention libre (facultatif)</span><input type="text" id="st-note" maxlength="200" value="${esc(st.payment_note || "")}" placeholder="Ex. : référence à indiquer au virement"></label>
           <label class="field"><span>Lien de paiement Stripe : mensualité</span><input type="url" id="st-link-m" maxlength="200" value="${esc(st.stripe_link_monthly || "")}" placeholder="https://buy.stripe.com/..."></label>
-          <label class="field"><span>Lien de paiement Stripe : mise en place</span><input type="url" id="st-link-s" maxlength="200" value="${esc(st.stripe_link_setup || "")}" placeholder="https://buy.stripe.com/..."></label>
           <p class="full muted" style="margin:0;font-size:13px">Ces liens apparaissent sur chaque facture du coach (bouton « Payer par carte »), avec le numéro de facture et l'email du coach préremplis. Les coachs voient aussi les coordonnées bancaires pour payer par virement.</p>
           <div class="full"><button type="button" class="btn" data-action="pcw-save-settings">Enregistrer</button></div></div></section>`;
   }
@@ -2404,7 +2400,7 @@
   // Lien Stripe de la facture : lien personnalisé, sinon celui de la mensualité / de la mise en place ; référence et email préremplis.
   function payUrlOf(i, st) {
     if (i.status !== "issued") return "";
-    const base = i.pay_url || i.payment_url || (st && (i.kind === "monthly" ? st.stripe_link_monthly : i.kind === "setup" ? st.stripe_link_setup : "")) || "";
+    const base = i.pay_url || i.payment_url || (st && (i.kind === "monthly" ? st.stripe_link_monthly : "")) || "";
     if (!base) return "";
     const cl = i.client || {};
     return base + (base.includes("?") ? "&" : "?") + "client_reference_id=" + encodeURIComponent(i.number) + (cl.email ? "&prefilled_email=" + encodeURIComponent(cl.email) : "");
@@ -2484,7 +2480,7 @@
     let sc = {};
     try { sc = ((await S.api.getSiteContent(coachId)) || {}).content || {}; } catch { /* champs vides */ }
     const b = c.billing || {};
-    const label = kind === "setup" ? `Mise en place du site : ${eur0(b.setup_fee_cents)}` : `Mensualité : ${eur0(b.monthly_cents)}`;
+    const label = `Mensualité : ${eur0(b.monthly_cents)}`;
     openDrawer({
       title: `Facturer · ${c.display_name}`,
       body: `<p class="muted" style="margin-top:0">${esc(label)}. Vérifiez l'identité du client : elle est figée sur la facture.</p>
@@ -2543,8 +2539,6 @@
     const val = (v) => esc(v || "");
     const money = (cents) => ((cents || 0) / 100).toString();
     const ends = b.live_since ? dFr(addMonthsYmd(b.live_since, b.commitment_months || 0)) : "—";
-    const waivedCount = S.pcw.coaches.filter((x) => x.billing && x.billing.setup_waived).length;
-    const offerOpen = !!b.setup_waived || waivedCount < 10;   // la case disparaît quand les 10 offres sont prises
     openDrawer({
       title: `Abonnement · ${c.display_name}`, wide: true,
       body: `<div class="form-grid">
@@ -2554,14 +2548,10 @@
           <div class="field"><span>Fin d'engagement</span><div style="padding:10px 0;font-weight:600">${ends}</div></div>
           <label class="field"><span>Abonnement (€ / mois)</span><input type="number" id="bf-monthly" min="0" step="0.01" value="${money(b.monthly_cents)}"></label>
           <label class="field"><span>Payé jusqu'au</span><input type="date" id="bf-paid" value="${val(b.paid_until)}"></label>
-          <label class="field"><span>Mise en ligne (€)</span><input type="number" id="bf-setup" min="0" step="0.01" value="${money(b.setup_fee_cents)}"></label>
-          <label class="field"><span>Mise en ligne payée le</span><input type="date" id="bf-setup-paid" value="${val(b.setup_paid_at)}"></label>
-          ${offerOpen ? `<label class="switch full"><span><b>Mise en ligne offerte</b><small>Offre des 10 premiers coachs (${waivedCount} / 10)</small></span><input type="checkbox" id="bf-waived" ${b.setup_waived ? "checked" : ""}></label>` : ""}
           <label class="field full"><span>Résiliation demandée le</span><input type="date" id="bf-cancel" value="${val(b.cancel_requested_at)}"></label>
           <label class="field full"><span>Notes internes</span><textarea id="bf-notes" rows="3" maxlength="2000">${esc(b.notes || "")}</textarea></label>
         </div>`,
-      foot: `${b.setup_waived || b.setup_paid_at ? "" : `<button class="btn" data-action="inv-new" data-kind="setup" data-id="${id}">Facturer la mise en place</button>`}
-        <button class="btn" data-action="inv-new" data-kind="monthly" data-id="${id}">Facturer le mois</button>
+      foot: `        <button class="btn" data-action="inv-new" data-kind="monthly" data-id="${id}">Facturer le mois</button>
         <button class="btn" data-action="pcw-paid-month" data-id="${id}">Noter 1 mois payé</button>
         <button class="btn btn--primary" data-action="pcw-save-billing" data-id="${id}">Enregistrer</button>`,
     });
@@ -2591,7 +2581,7 @@
     "inv-link": (el) => {
       const i = (S.pcw.invoices || []).find((x) => x.id === el.dataset.id); if (!i) return;
       openDrawer({ title: `Lien de paiement · ${i.number}`,
-        body: `<p class="muted" style="margin:0">Par défaut, le lien Stripe de la mensualité ou de la mise en place (réglé dans « Coordonnées de paiement ») est utilisé. Collez ici un lien Stripe propre à cette facture si le montant est différent.</p>
+        body: `<p class="muted" style="margin:0">Par défaut, le lien Stripe de la mensualité (réglé dans « Coordonnées de paiement ») est utilisé. Collez ici un lien Stripe propre à cette facture si le montant est différent.</p>
           <label class="field"><span>Lien Stripe de cette facture (facultatif)</span><input type="url" id="il-url" maxlength="200" value="${esc(i.payment_url || "")}" placeholder="https://buy.stripe.com/..."></label>`,
         foot: `<button class="btn btn--primary" data-action="inv-link-save" data-id="${i.id}">Enregistrer</button>` });
     },
@@ -2614,7 +2604,7 @@
     },
     "pcw-save-settings": async () => {
       try {
-        S.pcw.settings = await S.api.adminSetSettings({ iban: gv("st-iban"), bic: gv("st-bic"), bank_name: gv("st-bank"), payment_note: gv("st-note"), stripe_link_monthly: gv("st-link-m"), stripe_link_setup: gv("st-link-s") });
+        S.pcw.settings = await S.api.adminSetSettings({ iban: gv("st-iban"), bic: gv("st-bic"), bank_name: gv("st-bank"), payment_note: gv("st-note"), stripe_link_monthly: gv("st-link-m") });
         toast("Coordonnées de paiement enregistrées");
       } catch (err) { toast(errMsg(err)); }
     },
@@ -2669,8 +2659,8 @@
     "pcw-save-billing": async (el) => {
       const cents = (id) => Math.round((parseFloat(gv(id).replace(",", ".")) || 0) * 100);
       const patch = { plan_status: gv("bf-plan"), live_since: gv("bf-live"), commitment_months: parseInt(gv("bf-commit"), 10) || 0,
-        monthly_cents: cents("bf-monthly"), paid_until: gv("bf-paid"), setup_fee_cents: cents("bf-setup"), setup_paid_at: gv("bf-setup-paid"),
-        setup_waived: (document.getElementById("bf-waived") || { checked: false }).checked, cancel_requested_at: gv("bf-cancel"), notes: gv("bf-notes") };
+        monthly_cents: cents("bf-monthly"), paid_until: gv("bf-paid"),
+        cancel_requested_at: gv("bf-cancel"), notes: gv("bf-notes") };
       try { await S.api.adminSetBilling(el.dataset.id, patch); toast("Abonnement enregistré"); closeDrawer(); await refreshPcw(); }
       catch (err) { toast(errMsg(err)); }
     },

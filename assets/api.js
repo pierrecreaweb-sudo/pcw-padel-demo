@@ -298,7 +298,7 @@
         const bs = (db.bookings || []).filter((b) => b.coach_id === c.id);
         const live = bs.filter((b) => ["pending", "confirmed", "completed", "no_show"].includes(b.status));
         const bl = db.coach_billing.find((x) => x.coach_id === c.id) || { coach_id: c.id, plan_status: "pending", live_since: null, commitment_months: 12,
-          setup_fee_cents: 3900, setup_waived: false, setup_paid_at: null, monthly_cents: 7900, paid_until: null, cancel_requested_at: null, notes: null };
+          monthly_cents: 7900, paid_until: null, cancel_requested_at: null, notes: null };
         return { id: c.id, slug: c.slug, display_name: c.display_name, city: c.city, status: c.status, custom_domain: c.custom_domain || null,
           notify_email: c.notify_email || null, directory_listed: c.directory_listed !== false, created_at: c.created_at || null,
           owner_email: c.notify_email || null, last_sign_in_at: null, invite_pending: false,
@@ -604,7 +604,6 @@
           weekly_bookings: [],
           mrr_cents: bills.filter((b) => ["active", "cancelling"].includes(b.plan_status)).reduce((n, b) => n + b.monthly_cents, 0),
           overdue: { count: bills.filter((b) => b.plan_status === "overdue").length, cents: bills.filter((b) => b.plan_status === "overdue").reduce((n, b) => n + b.monthly_cents, 0) },
-          waived_setups: bills.filter((b) => b.setup_waived).length,
           pending_testimonials: (db.coach_testimonials || []).filter((t) => t.status === "pending").length,
           reported_reviews: 0, due_soon: [], commitment_ending: [],
           attention: list.filter((c) => c.slug !== "demo").map((c) => ({ coach_id: c.id, name: c.display_name, status: c.status,
@@ -614,7 +613,7 @@
       adminSetBilling: async (coachId, patch) => {
         db.coach_billing = db.coach_billing || [];
         let r = db.coach_billing.find((x) => x.coach_id === coachId);
-        if (!r) { r = { coach_id: coachId, plan_status: "pending", live_since: null, commitment_months: 12, setup_fee_cents: 3900, setup_waived: false, setup_paid_at: null, monthly_cents: 7900, paid_until: null, cancel_requested_at: null, notes: null }; db.coach_billing.push(r); }
+        if (!r) { r = { coach_id: coachId, plan_status: "pending", live_since: null, commitment_months: 12, monthly_cents: 7900, paid_until: null, cancel_requested_at: null, notes: null }; db.coach_billing.push(r); }
         Object.assign(r, patch); save();
         return delay(clone(r));
       },
@@ -635,17 +634,13 @@
       adminCreateInvoice: async (coachId, kind, client, periodStart, notes) => {
         db.invoices = db.invoices || []; db.coach_billing = db.coach_billing || [];
         let b = db.coach_billing.find((x) => x.coach_id === coachId);
-        if (!b) { b = { coach_id: coachId, plan_status: "pending", live_since: null, commitment_months: 12, setup_fee_cents: 3900, setup_waived: false, setup_paid_at: null, monthly_cents: 7900, paid_until: null, cancel_requested_at: null, notes: null }; db.coach_billing.push(b); }
+        if (!b) { b = { coach_id: coachId, plan_status: "pending", live_since: null, commitment_months: 12, monthly_cents: 7900, paid_until: null, cancel_requested_at: null, notes: null }; db.coach_billing.push(b); }
         if (!String((client && client.name) || "").trim()) throw new ApiError("Nom du client obligatoire sur la facture.", "INVALID_INPUT");
         const today = new Date().toISOString().slice(0, 10);
         const addM = (ymd, n) => { const d = new Date(ymd + "T12:00:00"); d.setMonth(d.getMonth() + n); return d.toISOString().slice(0, 10); };
         const dayBefore = (ymd) => { const d = new Date(ymd + "T12:00:00"); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); };
         let lines, total, due = today, ps = null, pe = null;
-        if (kind === "setup") {
-          if (b.setup_waived) throw new ApiError("La mise en place est offerte à ce coach : pas de facture.", "FORBIDDEN");
-          if (b.setup_paid_at || db.invoices.some((i) => i.coach_id === coachId && i.kind === "setup" && i.status !== "cancelled")) throw new ApiError("Une facture de mise en place existe déjà.", "DUPLICATE");
-          lines = [{ label: "Mise en place du site PCW Padel Coach", qty: 1, unit_cents: b.setup_fee_cents }]; total = b.setup_fee_cents;
-        } else {
+        {
           ps = periodStart || (b.paid_until ? new Date(new Date(b.paid_until + "T12:00:00").getTime() + 864e5).toISOString().slice(0, 10) : b.live_since || today);
           pe = dayBefore(addM(ps, 1));
           if (db.invoices.some((i) => i.coach_id === coachId && i.kind === "monthly" && i.status !== "cancelled" && i.period_start === ps)) throw new ApiError("Une facture existe déjà pour cette période.", "DUPLICATE");
@@ -666,7 +661,6 @@
         if (i.status === "cancelled") throw new ApiError("Cette facture est annulée.", "FORBIDDEN");
         i.status = "paid"; i.paid_on = paidOn || new Date().toISOString().slice(0, 10);
         const b = db.coach_billing.find((x) => x.coach_id === i.coach_id);
-        if (b && i.kind === "setup") b.setup_paid_at = i.paid_on;
         if (b && i.kind === "monthly") { if (!b.paid_until || b.paid_until < i.period_end) b.paid_until = i.period_end; b.live_since = b.live_since || i.period_start; if (["pending", "overdue"].includes(b.plan_status)) b.plan_status = "active"; }
         save(); return delay(clone(i));
       },
@@ -686,8 +680,8 @@
           invoices: [
             { id: "demo-inv-2", number: "FA-2026-0002", kind: "monthly", status: "issued", issued_on: today, due_on: due, period_start: today, period_end: due, total_cents: 7900,
               lines: [{ label: "Abonnement PCW Padel Coach, 1 mois", qty: 1, unit_cents: 7900 }], client: { name: "Lucas Ferrand", email: "coach@exemple.fr" }, pay_url: "https://buy.stripe.com/exemple" },
-            { id: "demo-inv-1", number: "FA-2026-0001", kind: "setup", status: "paid", issued_on: "2026-10-01", due_on: "2026-10-08", paid_on: "2026-10-03", total_cents: 3900,
-              lines: [{ label: "Mise en place du site", qty: 1, unit_cents: 3900 }], client: { name: "Lucas Ferrand", email: "coach@exemple.fr" } },
+            { id: "demo-inv-1", number: "FA-2026-0001", kind: "monthly", status: "paid", issued_on: "2026-10-01", due_on: "2026-10-08", paid_on: "2026-10-03", period_start: "2026-10-01", period_end: "2026-10-31", total_cents: 7900,
+              lines: [{ label: "Abonnement PCW Padel Coach, 1 mois", qty: 1, unit_cents: 7900 }], client: { name: "Lucas Ferrand", email: "coach@exemple.fr" } },
           ] });
       },
       adminSetInvoicePaymentUrl: async () => {},
