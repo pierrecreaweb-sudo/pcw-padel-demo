@@ -925,6 +925,11 @@
         <div class="form-grid">
         <label class="field full"><span>Nom du club</span><input type="text" id="lo-name" maxlength="80" value="${esc(l.name)}" placeholder="Padel Club Garonne"></label>
         <label class="field full"><span>Adresse</span><input type="text" id="lo-addr" maxlength="160" value="${esc(l.address || "")}"></label>
+        <div class="field full"><span>Logo du club <small>(facultatif, affiché sur votre site)</small></span>
+          <div class="upload"><span class="upload__thumb upload__thumb--logo" id="lo-logo-th">${l.logo_url ? `<img src="${esc(l.logo_url)}" alt="">` : ""}</span>
+            <div class="btn-row"><label class="btn btn--sm">Choisir une image<input type="file" accept="image/*" id="lo-logo-file" hidden></label>
+            <button type="button" class="btn btn--sm btn--danger" id="lo-logo-clear" ${l.logo_url ? "" : "hidden"}>Retirer</button></div></div>
+          <input type="hidden" id="lo-logo" value="${esc(l.logo_url || "")}"></div>
         <label class="field full"><span>Lien Google Maps <small>(facultatif)</small></span><input type="url" id="lo-maps" value="${esc(l.maps_url || "")}" placeholder="https://maps.app.goo.gl/…"></label>
         <fieldset class="full retro-box"><legend>Rétrocession au club</legend>
           <p class="muted" style="margin:0 0 10px;font-size:13px">Ce que le club vous facture pour ses terrains. Sert au calcul de vos statistiques, jamais affiché aux élèves.</p>
@@ -933,6 +938,19 @@
           <label class="field" id="lo-rval-wrap" ${(l.retro_mode || "none") === "none" ? "hidden" : ""}><span id="lo-rval-label">Montant</span>
             <input type="number" id="lo-rval" min="0" step="0.5" inputmode="decimal" value="${esc(l.retro_value || "")}"></label></div></fieldset></div>`,
       onMount: (el) => {
+        const lg = el.querySelector("#lo-logo"), th = el.querySelector("#lo-logo-th"), clr = el.querySelector("#lo-logo-clear");
+        const setLogo = (u) => { lg.value = u || ""; th.innerHTML = u ? `<img src="${esc(u)}" alt="">` : ""; clr.hidden = !u; };
+        clr.addEventListener("click", () => setLogo(""));
+        el.querySelector("#lo-logo-file").addEventListener("change", async (ev) => {
+          const f0 = ev.target.files[0]; if (!f0) return;
+          if (!/^image\//.test(f0.type)) return toast("Choisissez une image (PNG, JPG ou WebP).");
+          toast("Envoi du logo…");
+          try {
+            const f = await toJpegIfHeic(f0);
+            if (f.size > 5e6) return toast("Image trop lourde : 5 Mo maximum.");
+            setLogo(await S.api.upload(S.coach.id, f)); toast("Logo ajouté : pensez à enregistrer");
+          } catch (err) { toast(errMsg(err)); }
+        });
         const sel = el.querySelector("#lo-rmode"), wrap = el.querySelector("#lo-rval-wrap"), lab = el.querySelector("#lo-rval-label");
         const upd = () => { wrap.hidden = sel.value === "none"; lab.textContent = { percent: "Pourcentage (%)", per_hour: "Montant par heure (€)", per_session: "Montant par séance (€)", monthly: "Forfait par mois (€)" }[sel.value] || "Montant"; };
         sel.addEventListener("change", upd); upd();
@@ -948,7 +966,7 @@
     const rmode = document.getElementById("lo-rmode").value, rval = rmode === "none" ? 0 : Number(String(document.getElementById("lo-rval").value).replace(",", "."));
     if (rmode !== "none" && (!(rval >= 0) || !isFinite(rval))) return toast("Indiquez le montant de la rétrocession.");
     if (rmode === "percent" && rval > 100) return toast("Le pourcentage ne peut pas dépasser 100.");
-    const row = { name, address: document.getElementById("lo-addr").value.trim() || null, maps_url: maps || null, retro_mode: rmode, retro_value: rval };
+    const row = { name, address: document.getElementById("lo-addr").value.trim() || null, maps_url: maps || null, logo_url: document.getElementById("lo-logo").value || null, retro_mode: rmode, retro_value: rval };
     try {
       if (id) { const r = await S.api.update("locations", id, row); S.locations[S.locations.findIndex((x) => x.id === id)] = r; }
       else { S.locations.push(await S.api.insert("locations", { ...row, coach_id: S.coach.id, position: S.locations.length })); }

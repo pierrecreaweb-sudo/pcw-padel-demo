@@ -285,7 +285,7 @@
       </article>`).join("") || `<p class="muted">Les prestations seront bientôt en ligne.</p>`;
 
     $("#locations").innerHTML = locations.map((l) => `
-      <article class="loc"><h3>${esc(l.name)}</h3>${l.address ? `<p>${esc(l.address)}</p>` : ""}
+      <article class="loc">${/^https:\/\//.test(l.logo_url || "") ? `<img class="loc__logo" src="${esc(l.logo_url)}" alt="Logo ${esc(l.name)}" loading="lazy">` : ""}<h3>${esc(l.name)}</h3>${l.address ? `<p>${esc(l.address)}</p>` : ""}
       ${safeHref(l.maps_url) ? `<a href="${esc(l.maps_url)}" target="_blank" rel="noopener">Itinéraire</a>` : ""}</article>`).join("");
     $("#lieux").hidden = !locations.length;
 

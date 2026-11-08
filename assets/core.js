@@ -187,6 +187,20 @@
   // Texte lisible (blanc ou encre) sur une couleur donnée.
   // Icône de l'onglet : celle du coach (favicon, sinon logo), sinon une balle aux couleurs du site.
   // Sans thème (console PCW, connexion) : la balle PCW.
+  // Liens légaux identiques sur toutes les pages publiques d'un site coach (hors accueil, qui a son propre pied de page).
+  function legalFooter() {
+    if (typeof document === "undefined" || document.querySelector("footer")) return;
+    if (/\/(admin|mon-espace)/.test(location.pathname)) return;
+    const q = location.search || "";
+    const f = document.createElement("footer");
+    f.className = "footer footer--legal";
+    f.innerHTML = `<div class="wrap footer__in"><a href="/conditions.html${q}#mentions">Mentions légales</a>` +
+      `<a href="/conditions.html${q}#donnees">Politique de confidentialité</a><a href="/conditions.html${q}">Conditions de réservation</a></div>`;
+    document.body.appendChild(f);
+  }
+  if (typeof document !== "undefined") {
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", legalFooter); else legalFooter();
+  }
   function setFavicon(theme) {
     if (typeof document === "undefined") return;
     const t = theme || {};
