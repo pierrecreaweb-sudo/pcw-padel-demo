@@ -155,7 +155,7 @@
   if (doc) doc.addEventListener("change", function (e) { var t = e.target; if (t && t.matches && t.matches("select[data-langsw]")) setLang(t.value); });
   function mountSwitcher() {
     if (!doc || doc.querySelector(".langsw")) return;
-    var host = doc.querySelector(".topbar__in");
+    var host = doc.querySelector(".topbar__in, .top__in");
     if (!host) return;
     var sel = doc.createElement("select");
     sel.className = "langsw"; sel.setAttribute("aria-label", "Language"); sel.setAttribute("data-notranslate", "");
@@ -175,7 +175,8 @@
   if (doc) {
     try { doc.documentElement.lang = lang; } catch (e) {}
     if (lang !== "fr") {
-      doc.write('<script src="' + base + "lang/" + lang + ".js" + ver + '"><\/script>');
+      var only = script && script.hasAttribute("data-only");
+      if (!only) doc.write('<script src="' + base + "lang/" + lang + ".js" + ver + '"><\/script>');
       var extra = script && script.getAttribute("data-dict");
       if (extra) extra.split(",").forEach(function (d) { doc.write('<script src="' + base + "lang/" + d + "-" + lang + ".js" + ver + '"><\/script>'); });
     }
