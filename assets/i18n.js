@@ -42,8 +42,10 @@
       var key = norm(k);
       if (key.indexOf("{}") < 0) { D.exact[key] = dict[k]; return; }
       var re = new RegExp("^" + key.split("{}").map(escRe).join("((?:[^.!?;]|\\d\\.\\d){1,90}?)") + "$");
-      D.pats.push([re, dict[k]]);
+      D.pats.push([re, dict[k], key.replace(/\{\}/g, "").length]);
     });
+    // Les modèles les plus précis (le plus de texte fixe) passent avant les plus généraux.
+    D.pats.sort(function (a, b) { return b[2] - a[2]; });
     (rules || []).forEach(function (r) { D.rules.push(r); });
   }
 
@@ -182,7 +184,9 @@
     var im = doc.querySelectorAll('img[src*="-fr.jpg"]');
     for (var j = 0; j < im.length; j++) im[j].setAttribute("src", im[j].getAttribute("src").replace("-fr.jpg", "-" + lang + ".jpg"));
     // La vidéo de présentation existe dans chaque langue (presentation-xx.mp4).
-    var vs = doc.querySelectorAll("video source[data-vid]");
+    var vs = lang === "fr" ? [] : doc.querySelectorAll("video source[data-vid]");
+    var pv = lang === "fr" ? [] : doc.querySelectorAll("video[data-poster]");
+    for (var q = 0; q < pv.length; q++) pv[q].setAttribute("poster", pv[q].getAttribute("data-poster").replace("{lang}", lang));
     for (var k = 0; k < vs.length; k++) {
       var src = vs[k].getAttribute("data-vid").replace("{lang}", lang);
       vs[k].setAttribute("src", src); if (vs[k].parentNode && vs[k].parentNode.load) vs[k].parentNode.load();

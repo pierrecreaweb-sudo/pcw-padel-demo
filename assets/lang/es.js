@@ -476,6 +476,16 @@ PCW_I18N.add("es", {
 "{} · jusqu'à {} joueurs · {}": "{1} · hasta {2} jugadores · {3}",
 "{} · jusqu'à {} joueurs": "{1} · hasta {2} jugadores",
 "{} · 1 joueur · {}": "{1} · 1 jugador · {2}",
-"{} · 1 joueur": "{1} · 1 jugador"
+"{} · 1 joueur": "{1} · 1 jugador",
+"{} séances avec {} · niveau {}": "{1} sesiones con {2} · nivel {3}",
+"{} séance avec {} · niveau {}": "{1} sesión con {2} · nivel {3}",
+"Premier cours le {}. Prestation favorite : {}.": "Primera clase el {1}. Servicio favorito: {2}.",
+"Premier cours le {}.": "Primera clase el {}.",
+"Prestation favorite : {}.": "Servicio favorito: {}.",
+"Ajouter ma séance à mon agenda (Apple / Outlook)": "Añadir mi sesión a mi calendario (Apple / Outlook)",
+"Ajouter toutes mes séances à mon agenda (Apple / Outlook)": "Añadir todas mis sesiones a mi calendario (Apple / Outlook)",
+"Premier cours le": "Primera clase el",
+"Prestation favorite :": "Servicio favorito:",
+"Dans {} jours": "En {} días"
 }, R);
 })();

@@ -489,7 +489,6 @@ PCW_I18N.add("es", {
 "coachez.": "entrenas.",
 "absences": "ausencias",
 "Réserver": "Reservar",
-"Toulouse": "Madrid",
 "Moins de": "Menos de",
 "par jour": "al día",
 "Prénom *": "Nombre *",

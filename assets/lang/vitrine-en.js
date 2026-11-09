@@ -489,7 +489,6 @@ PCW_I18N.add("en", {
 "coachez.": "coach.",
 "absences": "absences",
 "Réserver": "Book",
-"Toulouse": "London",
 "Moins de": "Less than",
 "par jour": "a day",
 "Prénom *": "First name *",

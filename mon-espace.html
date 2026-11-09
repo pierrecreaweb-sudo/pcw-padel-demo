@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest-espace.webmanifest">
 <meta name="theme-color" content="#0E2A52">
 <link rel="apple-touch-icon" href="admin/apple-touch-icon.png">
-<link rel="stylesheet" href="assets/site.css?v=mw9a0emq">
+<link rel="stylesheet" href="assets/site.css?v=mw9g5hbp">
 <style>
   :root { --nav-h: 68px; }
   body { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 12px); overflow-x: hidden; }
@@ -130,11 +130,11 @@
 <main class="wrap">
   <div class="space" id="space" aria-live="polite"><div class="panel"><div class="skeleton"></div><div class="skeleton" style="margin-top:12px;width:60%"></div></div></div>
 </main>
-<script src="assets/config.js?v=mw9a0emq"></script>
-<script src="assets/i18n.js?v=mw9a0emq"></script>
-<script src="assets/core.js?v=mw9a0emq"></script>
-<script src="assets/demo-data.js?v=mw9a0emq"></script>
-<script src="assets/api.js?v=mw9a0emq"></script>
+<script src="assets/config.js?v=mw9g5hbp"></script>
+<script src="assets/i18n.js?v=mw9g5hbp"></script>
+<script src="assets/core.js?v=mw9g5hbp"></script>
+<script src="assets/demo-data.js?v=mw9g5hbp"></script>
+<script src="assets/api.js?v=mw9g5hbp"></script>
 <script>
 (function () {
   "use strict";
@@ -371,7 +371,7 @@
           <div class="stat">${ICON.cal}<div><b>${st.this_month}</b><span>ce mois-ci</span></div></div>
           <div class="stat">${ICON.flame}<div><b>${st.streak_weeks}</b><span>semaine${st.streak_weeks > 1 ? "s" : ""} d'affilée</span></div></div>
         </div>
-        <p class="sub" style="margin:12px 0 0">${st.first_at ? "Premier cours le " + esc(P.fmtDate(st.first_at, data.coach.timezone, "short")).replace(/\.$/, "") + "." : ""}${st.top_service ? " Prestation favorite : " + esc(st.top_service) + "." : ""}</p>
+        <p class="sub" style="margin:12px 0 0">${st.first_at ? "<span>Premier cours le</span> <span>" + esc(P.fmtDate(st.first_at, data.coach.timezone, "short")).replace(/\.$/, "") + "</span>." : ""}${st.top_service ? " <span>Prestation favorite :</span> <span>" + esc(st.top_service) + "</span>." : ""}</p>
         ${next ? `<p class="sub" style="margin:6px 0 0">Prochain badge « ${next[0]} » : encore <b>${next[1]}</b> séance${next[1] > 1 ? "s" : ""}.</p>` : ""}
         <div class="badges">${bd.map(([i, t, on]) => `<span class="badge ${on ? "" : "off"}"><i>${i}</i>${esc(t)}</span>`).join("")}</div></div>
       <div class="panel"><h2>${ICON.target}Ma fiche de progression</h2>
