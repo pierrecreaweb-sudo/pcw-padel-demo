@@ -340,6 +340,12 @@
   }
   async function selectCoach(id) {
     S.coach = S.coaches.find((c) => c.id === id);
+    // Langue du back-office choisie à l'avance (fiche du coach en espagnol ou en anglais) : elle s'applique
+    // tant que le coach n'a pas lui-même choisi une langue sur cet appareil.
+    try {
+      const cl = S.coach && S.coach.lang;
+      if ((cl === "es" || cl === "en") && !localStorage.getItem("pcw_lang") && cl !== window.PCW_LANG) { localStorage.setItem("pcw_lang", cl); location.reload(); return; }
+    } catch { /* ignore */ }
     syncCoachLang(id);
     try { localStorage.setItem("pcw-coach-id", id); } catch { /* ignore */ }
     app.innerHTML = `<div class="boot"><span class="ball"></span>Chargement de vos données…</div>`;
@@ -419,7 +425,7 @@
       <div class="kpis">
         <div class="kpi"><span class="kpi__label">Aujourd'hui</span><span class="kpi__value">${today.length}</span><span class="kpi__sub">séance${today.length > 1 ? "s" : ""}</span></div>
         <div class="kpi"><span class="kpi__label">Cette semaine</span><span class="kpi__value">${wk.count}</span>
-          <span class="kpi__sub">${wk.hours.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} h · ${wk.fill} % rempli</span><span class="meter" aria-hidden="true"><i style="width:${wk.fill}%"></i></span></div>
+          <span class="kpi__sub">${wk.hours.toLocaleString((window.PCW_I18N && PCW_I18N.locale) || "fr-FR", { maximumFractionDigits: 1 })} h · ${wk.fill} % rempli</span><span class="meter" aria-hidden="true"><i style="width:${wk.fill}%"></i></span></div>
         <a class="kpi ${pending.length ? "kpi--alert" : ""}" href="#reservations" data-filter="pending" style="text-decoration:none;color:inherit"><span class="kpi__label">À valider</span><span class="kpi__value">${pending.length}</span><span class="kpi__sub">${pending.length ? "demande" + (pending.length > 1 ? "s" : "") + " en attente" : "rien en attente"}</span></a>
         <div class="kpi"><span class="kpi__label">Encaissé ce mois</span><span class="kpi__value">${euros(paid)}</span><span class="kpi__sub">${euros(toCollect)} à encaisser · ${euros(planned)} prévus</span></div>
       </div>
@@ -2808,11 +2814,25 @@
     // QR lisible : couleur foncée uniquement (sinon noir).
     return P.hexToRgb(p) && P.readableOn(p) === "#FFFFFF" ? p : "#0F1B30";
   };
-  const SHARE_TEMPLATES = {
-    presentation: (n, url) => `Bonjour ! Vous pouvez maintenant réserver vos cours de padel avec moi directement en ligne, 24 h/24 : choisissez votre séance et votre créneau en 1 minute.\n${url}\nÀ bientôt sur le terrain ! ${n}`,
-    creneaux: (n, url) => `Il me reste des créneaux de coaching cette semaine. Réservez le vôtre ici, c'est confirmé tout de suite :\n${url}`,
-    apres: (n, url) => `Merci pour la séance ! Pour réserver la prochaine, tout se passe ici :\n${url}\nVotre avis m'aide beaucoup si vous avez une minute pour le laisser après la séance.`,
+  const SHARE_LG = (window.PCW_LANG || "fr");
+  const SHARE_ALL = {
+    fr: {
+      presentation: (n, url) => `Bonjour ! Vous pouvez maintenant réserver vos cours de padel avec moi directement en ligne, 24 h/24 : choisissez votre séance et votre créneau en 1 minute.\n${url}\nÀ bientôt sur le terrain ! ${n}`,
+      creneaux: (n, url) => `Il me reste des créneaux de coaching cette semaine. Réservez le vôtre ici, c'est confirmé tout de suite :\n${url}`,
+      apres: (n, url) => `Merci pour la séance ! Pour réserver la prochaine, tout se passe ici :\n${url}\nVotre avis m'aide beaucoup si vous avez une minute pour le laisser après la séance.`,
+    },
+    es: {
+      presentation: (n, url) => `¡Hola! Ya puedes reservar tus clases de pádel conmigo directamente en línea, las 24 h: elige tu sesión y tu horario en 1 minuto.\n${url}\n¡Hasta pronto en la pista! ${n}`,
+      creneaux: (n, url) => `Me quedan huecos de entrenamiento esta semana. Reserva el tuyo aquí, queda confirmado al instante:\n${url}`,
+      apres: (n, url) => `¡Gracias por la sesión! Para reservar la siguiente, todo se hace aquí:\n${url}\nTu opinión me ayuda mucho si tienes un minuto para dejarla después de la sesión.`,
+    },
+    en: {
+      presentation: (n, url) => `Hello! You can now book your padel lessons with me directly online, 24/7: choose your session and your time slot in 1 minute.\n${url}\nSee you on court! ${n}`,
+      creneaux: (n, url) => `I still have some coaching slots available this week. Book yours here, it's confirmed instantly:\n${url}`,
+      apres: (n, url) => `Thank you for the session! To book the next one, everything happens here:\n${url}\nYour review helps me a lot if you have a minute to leave one after the session.`,
+    },
   };
+  const SHARE_TEMPLATES = SHARE_ALL[SHARE_LG] || SHARE_ALL.fr;
   // Logo au centre des QR codes : celui du haut du site s'il existe, sinon un logo réservé aux QR codes.
   const qrLogoUrl = () => {
     const th = (S.site && S.site.theme) || {};
@@ -3284,7 +3304,7 @@
   function ratingSummary() {
     const list = published();
     const avg = list.length ? list.reduce((a, r) => a + r.rating, 0) / list.length : null;
-    return { avg, count: list.length, label: avg == null ? "–" : (Math.round(avg * 10) / 10).toLocaleString("fr-FR", { minimumFractionDigits: 1 }) };
+    return { avg, count: list.length, label: avg == null ? "–" : (Math.round(avg * 10) / 10).toLocaleString((window.PCW_I18N && PCW_I18N.locale) || "fr-FR", { minimumFractionDigits: 1 }) };
   }
   function viewReviews() {
     const sum = ratingSummary(), list = [...S.reviews].sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -3503,7 +3523,7 @@
         <div class="kpi"><span class="kpi__label">Nouveaux élèves</span><span class="kpi__value num">${st.newPlayers}</span>
           <span class="kpi__sub">première séance sur la période · ${st.activePlayers} élève${st.activePlayers > 1 ? "s" : ""} actif${st.activePlayers > 1 ? "s" : ""}</span></div>
         <div class="kpi"><span class="kpi__label">Taux d'occupation</span><span class="kpi__value num">${st.fill} %</span>
-          <span class="kpi__sub">${Math.round(st.bookedH).toLocaleString("fr-FR")} h réservées sur ${Math.round(st.openH).toLocaleString("fr-FR")} h ouvertes</span>
+          <span class="kpi__sub">${Math.round(st.bookedH).toLocaleString((window.PCW_I18N && PCW_I18N.locale) || "fr-FR")} h réservées sur ${Math.round(st.openH).toLocaleString((window.PCW_I18N && PCW_I18N.locale) || "fr-FR")} h ouvertes</span>
           <span class="meter" aria-hidden="true"><i style="width:${st.fill}%"></i></span></div>
       </div>
       <div class="grid grid--main">
@@ -3520,7 +3540,7 @@
       </div>`;
   }
   const retroLabel = (l) => {
-    const v = Number(l.retro_value || 0).toLocaleString("fr-FR", { maximumFractionDigits: 2 });
+    const v = Number(l.retro_value || 0).toLocaleString((window.PCW_I18N && PCW_I18N.locale) || "fr-FR", { maximumFractionDigits: 2 });
     return { none: "Pas de rétrocession", percent: `${v} % du prix de la séance`, per_hour: `${v} € par heure`, per_session: `${v} € par séance`, monthly: `Forfait de ${v} € par mois` }[l.retro_mode || "none"];
   };
   AFTER.statistiques = async () => {

@@ -166,9 +166,32 @@
     host.appendChild(sel);
   }
 
+  /** Les liens vers la démo emportent la langue choisie (fr, es ou en). */
+  function demoLinks() {
+    if (!doc) return;
+    var set = function () {
+      var as = doc.querySelectorAll('a[href*="demo.pcwpadel.fr"]');
+      for (var i = 0; i < as.length; i++) {
+        var h = as[i].getAttribute("href").replace(/([?&])lang=[a-z]{2}&?/, "$1").replace(/[?&]$/, "");
+        as[i].setAttribute("href", h + (h.indexOf("?") < 0 ? "?" : "&") + "lang=" + lang);
+      }
+    };
+    set(); setTimeout(set, 600);
+    if (lang !== "fr") { var nf = doc.querySelectorAll("[data-nonfr]"); for (var n = 0; n < nf.length; n++) nf[n].removeAttribute("hidden"); }
+    // Captures d'écran localisées : media/xxx-fr.jpg devient media/xxx-<langue>.jpg
+    var im = doc.querySelectorAll('img[src*="-fr.jpg"]');
+    for (var j = 0; j < im.length; j++) im[j].setAttribute("src", im[j].getAttribute("src").replace("-fr.jpg", "-" + lang + ".jpg"));
+    // La vidéo de présentation existe dans chaque langue (presentation-xx.mp4).
+    var vs = doc.querySelectorAll("video source[data-vid]");
+    for (var k = 0; k < vs.length; k++) {
+      var src = vs[k].getAttribute("data-vid").replace("{lang}", lang);
+      vs[k].setAttribute("src", src); if (vs[k].parentNode && vs[k].parentNode.load) vs[k].parentNode.load();
+    }
+  }
+
   var api = {
     lang: lang, LANGS: LANGS, locale: LOCALE[lang], tr: tr, add: add, run: run, setLang: setLang, switcherHtml: switcherHtml,
-    start: function () { title(); mountSwitcher(); start(); },
+    start: function () { title(); mountSwitcher(); demoLinks(); start(); },
   };
   root.PCW_LANG = lang;
   root.PCW_I18N = api;

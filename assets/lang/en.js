@@ -472,6 +472,10 @@ PCW_I18N.add("en", {
 "Ajouter à l'écran d'accueil": "Add to Home Screen",
 "Votre accès, vos objectifs, vos messages et vos alertes sont supprimés, et vous ne recevez plus d'emails de rappel ni d'annonces. Votre coach conserve l'historique de vos séances et de vos paiements, comme le prévoit la loi pour sa comptabilité.": "Your access, goals, messages and alerts are deleted, and you no longer receive reminder or announcement emails. Your coach keeps the history of your sessions and payments, as required by law for accounting purposes.",
 "🔥 {} semaines d'affilée": "🔥 {} weeks in a row",
-"🔥 {} semaine d'affilée": "🔥 {} week in a row"
+"🔥 {} semaine d'affilée": "🔥 {} week in a row",
+"{} · jusqu'à {} joueurs · {}": "{1} · up to {2} players · {3}",
+"{} · jusqu'à {} joueurs": "{1} · up to {2} players",
+"{} · 1 joueur · {}": "{1} · 1 player · {2}",
+"{} · 1 joueur": "{1} · 1 player"
 }, R);
 })();
