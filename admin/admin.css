@@ -615,3 +615,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 /* Stages, packs */
 h2 .pill { margin-left: 6px; vertical-align: middle; font-size: 12px; }
+
+/* Sélecteur de langue du back-office */
+.langsw--side { margin: 6px 12px 4px; width: calc(100% - 24px); display: block; }
+.langsw--login { margin: 0; background-color: #eef1f6; color: #0E2A52; border-color: #c9d1de; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%230E2A52' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.langsw { appearance: none; -webkit-appearance: none; background: rgba(255, 255, 255, .14) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23fff' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 9px center; color: inherit; border: 1px solid rgba(255, 255, 255, .28); border-radius: 999px; font: 700 13px/1 var(--f-body, inherit); padding: 8px 26px 8px 12px; cursor: pointer; }
+.langsw option { color: #0E1B2C; }

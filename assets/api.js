@@ -115,6 +115,7 @@
       sendMagicLink: async (email) => { unwrap(await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: false, emailRedirectTo: root.location.href.split("#")[0] } })); },
       resetPassword: async (email) => { unwrap(await sb.auth.resetPasswordForEmail(email, { redirectTo: root.location.href.split("#")[0] })); },
       updatePassword: async (password) => { unwrap(await sb.auth.updateUser({ password })); },
+      setCoachLang: async (coachId, lang) => { unwrap(await sb.rpc("coach_set_lang", { p_coach_id: coachId, p_lang: lang })); },
       signOut: async () => { await sb.auth.signOut(); },
       onAuthChange: (cb) => sb.auth.onAuthStateChange((evt, session) => cb(evt, session && session.user)),
 
@@ -587,6 +588,7 @@
       sendMagicLink: async () => delay(),
       resetPassword: async () => delay(),
       updatePassword: async () => delay(),
+      setCoachLang: async () => delay(true),
       signOut: async () => {
         session = null;
         try { store && store.removeItem(KEY + "-session"); } catch { /* ignore */ }

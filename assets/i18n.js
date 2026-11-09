@@ -136,8 +136,23 @@
   function setLang(l) {
     if (!LANGS[l]) return;
     try { root.localStorage.setItem("pcw_lang", l); } catch (e) {}
+    // Les espaces connectés (back-office) peuvent mémoriser la langue côté serveur avant le rechargement.
+    var wait = null;
+    try { wait = root.PCW_ON_LANG ? root.PCW_ON_LANG(l) : null; } catch (e) {}
+    if (wait && wait.then) {
+      var done = false, go = function () { if (!done) { done = true; reload(); } };
+      wait.then(go, go); setTimeout(go, 1500);
+    } else reload();
+  }
+  function reload() {
     if (root.location) { var u = root.location.href.replace(/([?&])lang=[a-z]{2}&?/, "$1").replace(/[?&]$/, ""); root.location.replace(u); }
   }
+  /** Sélecteur prêt à insérer dans un menu généré (back-office). */
+  function switcherHtml(cls) {
+    return '<select class="langsw ' + (cls || "") + '" data-langsw aria-label="Language" data-notranslate>' +
+      Object.keys(LANGS).map(function (l) { return '<option value="' + l + '"' + (l === lang ? " selected" : "") + ">" + LANGS[l] + "</option>"; }).join("") + "</select>";
+  }
+  if (doc) doc.addEventListener("change", function (e) { var t = e.target; if (t && t.matches && t.matches("select[data-langsw]")) setLang(t.value); });
   function mountSwitcher() {
     if (!doc || doc.querySelector(".langsw")) return;
     var host = doc.querySelector(".topbar__in");
@@ -152,14 +167,18 @@
   }
 
   var api = {
-    lang: lang, LANGS: LANGS, locale: LOCALE[lang], tr: tr, add: add, run: run, setLang: setLang,
+    lang: lang, LANGS: LANGS, locale: LOCALE[lang], tr: tr, add: add, run: run, setLang: setLang, switcherHtml: switcherHtml,
     start: function () { title(); mountSwitcher(); start(); },
   };
   root.PCW_LANG = lang;
   root.PCW_I18N = api;
   if (doc) {
     try { doc.documentElement.lang = lang; } catch (e) {}
-    if (lang !== "fr") doc.write('<script src="' + base + "lang/" + lang + ".js" + ver + '"><\/script>');
+    if (lang !== "fr") {
+      doc.write('<script src="' + base + "lang/" + lang + ".js" + ver + '"><\/script>');
+      var extra = script && script.getAttribute("data-dict");
+      if (extra) extra.split(",").forEach(function (d) { doc.write('<script src="' + base + "lang/" + d + "-" + lang + ".js" + ver + '"><\/script>'); });
+    }
     var go = function () { api.start(); };
     // Les dictionnaires sont chargés avant la fin du document : on traduit dès que la page est prête, puis en continu.
     if (doc.readyState === "loading") doc.addEventListener("DOMContentLoaded", go); else go();

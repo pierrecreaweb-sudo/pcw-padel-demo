@@ -246,6 +246,7 @@
         <div class="side__foot">
           <a href="${siteUrl}" target="_blank" rel="noopener">Voir mon site ↗</a>
           <a href="../aide.html" target="_blank" rel="noopener">Aide et contact ↗</a>
+          ${window.PCW_I18N ? window.PCW_I18N.switcherHtml("langsw--side") : ""}
           <button type="button" data-action="sign-out">Se déconnecter</button>
         </div>
       </aside>
@@ -285,7 +286,8 @@
           <button type="button" class="btn btn--sm" data-action="magic-link">Recevoir un lien par email</button>
           <button type="button" class="btn btn--sm" data-action="forgot">Mot de passe oublié</button>
         </div>
-      </form></div></div>`;
+      </form>
+      <div style="margin-top:14px;text-align:center">${window.PCW_I18N ? window.PCW_I18N.switcherHtml("langsw--login") : ""}</div></div></div>`;
     const remember = document.getElementById("l-remember");
     if (remember) remember.addEventListener("change", () => S.api.setRemember && S.api.setRemember(remember.checked));
     document.getElementById("login-form").addEventListener("submit", async (e) => {
@@ -312,6 +314,13 @@
       catch (err) { renderRecovery(errMsg(err)); }
     });
   }
+  // La langue choisie dans le back-office est aussi celle des emails reçus par le coach.
+  function syncCoachLang(id) {
+    const L = window.PCW_LANG || "fr", key = "pcw_lang_sync_" + id;
+    try { if (localStorage.getItem(key) === L) return; } catch { /* ignore */ }
+    if (S.api && S.api.setCoachLang) S.api.setCoachLang(id, L).then(() => { try { localStorage.setItem(key, L); } catch { /* ignore */ } }, () => {});
+  }
+  window.PCW_ON_LANG = (l) => (S.coach && S.api && S.api.setCoachLang) ? S.api.setCoachLang(S.coach.id, l).then(() => { try { localStorage.setItem("pcw_lang_sync_" + S.coach.id, l); } catch { /* ignore */ } }) : null;
   async function afterSignIn() {
     S.user = await S.api.getUser();
     if (!S.user) return render();
@@ -331,6 +340,7 @@
   }
   async function selectCoach(id) {
     S.coach = S.coaches.find((c) => c.id === id);
+    syncCoachLang(id);
     try { localStorage.setItem("pcw-coach-id", id); } catch { /* ignore */ }
     app.innerHTML = `<div class="boot"><span class="ball"></span>Chargement de vos données…</div>`;
     S.ui.weekStart = P.mondayOf(todayYmd());
@@ -2242,6 +2252,7 @@
         <div class="side__foot">
           <a href="https://pcwpadel.fr/" target="_blank" rel="noopener">Page de vente pcwpadel.fr ↗</a>
           <span class="muted" style="padding:6px 12px;font-size:12px;opacity:.7">${esc((S.user && S.user.email) || "")}</span>
+          ${window.PCW_I18N ? window.PCW_I18N.switcherHtml("langsw--side") : ""}
           <button type="button" data-action="sign-out">Se déconnecter</button>
         </div>
       </aside>
