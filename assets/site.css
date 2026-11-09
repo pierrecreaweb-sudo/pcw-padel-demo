@@ -550,3 +550,8 @@ html:not(.boot) body { animation: mo-page .35s ease backwards; }
 }
 .btn__ripple { position: absolute; z-index: -1; border-radius: 50%; background: rgba(255, 255, 255, .5); transform: scale(0); animation: mo-ripple .65s ease-out forwards; pointer-events: none; }
 @keyframes mo-ripple { to { transform: scale(1); opacity: 0; } }
+
+/* Sélecteur de langue (en-tête) */
+.langsw { margin-left: auto; appearance: none; -webkit-appearance: none; background: rgba(255, 255, 255, .14) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23fff' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 9px center; color: inherit; border: 1px solid rgba(255, 255, 255, .28); border-radius: 999px; font: 700 13px/1 var(--f-body, inherit); padding: 8px 26px 8px 12px; cursor: pointer; }
+.langsw option { color: #0E1B2C; }
+.topbar .btn ~ .langsw, .topbar .burger ~ .langsw { margin-left: 0; }

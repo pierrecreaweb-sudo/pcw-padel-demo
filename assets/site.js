@@ -40,8 +40,8 @@
   // ---------------------------------------------------------------- avis ---
   // Avis vérifiés (laissés après une séance) avec la note de coaching ; à défaut, les témoignages du coach.
   const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z"/></svg>';
-  const starRow = (n) => `<span class="stars" role="img" aria-label="${n.toLocaleString("fr-FR")} sur 5">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= Math.round(n) ? "on" : ""}">${STAR}</i>`).join("")}</span>`;
-  const fmtNote = (n) => n.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  const starRow = (n) => `<span class="stars" role="img" aria-label="${n.toLocaleString((window.PCW_I18N && window.PCW_I18N.locale) || "fr-FR")} sur 5">${[1, 2, 3, 4, 5].map((i) => `<i class="${i <= Math.round(n) ? "on" : ""}">${STAR}</i>`).join("")}</span>`;
+  const fmtNote = (n) => n.toLocaleString((window.PCW_I18N && window.PCW_I18N.locale) || "fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   let reviewsShown = 6;
   function renderReviews(testimonials) {
     const rating = state.site.rating || { count: 0 }, reviews = state.site.reviews || [];
@@ -447,7 +447,7 @@
     const confirmed = r.status === "confirmed";
     const manage = `reservation.html?t=${encodeURIComponent(r.token)}&c=${encodeURIComponent(state.slug)}`;
     const gcal = P.googleCalendarUrl({
-      title: `${s.name} avec ${state.site.coach.display_name}`, start: r.starts_at, end: r.ends_at,
+      title: `${s.name} ${(window.PCW_I18N && window.PCW_I18N.tr("avec")) || "avec"} ${state.site.coach.display_name}`, start: r.starts_at, end: r.ends_at,
       location: loc ? [loc.name, loc.address].filter(Boolean).join(", ") : "", details: "Séance de padel",
     });
     return `<div class="panel booked">

@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/site.css?v=mw7knqv8">
+<link rel="stylesheet" href="assets/site.css?v=mw92o81m">
 </head>
 <body>
 <header class="topbar">
@@ -23,10 +23,11 @@
     <div class="panel"><div class="skeleton"></div><div class="skeleton" style="margin-top:12px;width:60%"></div></div>
   </div>
 </main>
-<script src="assets/config.js?v=mw7knqv8"></script>
-<script src="assets/core.js?v=mw7knqv8"></script>
-<script src="assets/demo-data.js?v=mw7knqv8"></script>
-<script src="assets/api.js?v=mw7knqv8"></script>
+<script src="assets/config.js?v=mw92o81m"></script>
+<script src="assets/i18n.js?v=mw92o81m"></script>
+<script src="assets/core.js?v=mw92o81m"></script>
+<script src="assets/demo-data.js?v=mw92o81m"></script>
+<script src="assets/api.js?v=mw92o81m"></script>
 <script>
 (function () {
   "use strict";
@@ -51,7 +52,7 @@
     const b = booking, tz = b.coach.timezone;
     const loc = b.location;
     document.getElementById("brand-text").textContent = b.coach.display_name.toUpperCase();
-    const gcal = P.googleCalendarUrl({ title: `${b.service_name} avec ${b.coach.display_name}`, start: b.starts_at, end: b.ends_at,
+    const gcal = P.googleCalendarUrl({ title: `${b.service_name} ${(window.PCW_I18N && window.PCW_I18N.tr("avec")) || "avec"} ${b.coach.display_name}`, start: b.starts_at, end: b.ends_at,
       location: loc ? [loc.name, loc.address].filter(Boolean).join(", ") : "", details: location.href });
     const active = b.status === "confirmed" || b.status === "pending";
     el.innerHTML = `<div class="panel">

@@ -63,29 +63,60 @@
   function mondayOf(ymd) { return addDays(ymd, 1 - isoWeekday(ymd)); }
 
   // ------------------------------------------------------------ formats FR ---
-  const DAYS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"];
-  const DAYS_SHORT = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
-  const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
-  const MONTHS_SHORT = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."];
+  const LG = (root.PCW_LANG === "es" || root.PCW_LANG === "en") ? root.PCW_LANG : "fr";
+  const NAMES = {
+    fr: {
+      days: ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"],
+      daysShort: ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."],
+      months: ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"],
+      monthsShort: ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."],
+    },
+    es: {
+      days: ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"],
+      daysShort: ["lun.", "mar.", "mié.", "jue.", "vie.", "sáb.", "dom."],
+      months: ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"],
+      monthsShort: ["ene.", "feb.", "mar.", "abr.", "may.", "jun.", "jul.", "ago.", "sept.", "oct.", "nov.", "dic."],
+    },
+    en: {
+      days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      daysShort: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      months: ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+      monthsShort: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    },
+  };
+  const DAYS = NAMES[LG].days, DAYS_SHORT = NAMES[LG].daysShort, MONTHS = NAMES[LG].months, MONTHS_SHORT = NAMES[LG].monthsShort;
   const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
+  // Heure : 9h30 (fr), 9:30 (es), 9:30 am (en).
+  function hmText(h, mi) {
+    if (LG === "fr") return `${h}h${pad(mi)}`;
+    if (LG === "es") return `${h}:${pad(mi)}`;
+    return `${h % 12 || 12}:${pad(mi)} ${h < 12 ? "am" : "pm"}`;
+  }
   function fmtTime(date, tz) {
     const p = tzParts(new Date(date), tz);
-    return `${p.h}h${pad(p.mi)}`;
+    return hmText(p.h, p.mi);
   }
-  function hmLabel(hm) { const [h, m] = hm.split(":"); return `${+h}h${m}`; }
+  function hmLabel(hm) { const [h, m] = hm.split(":"); return hmText(+h, +m); }
   function fmtYmd(ymd, style) {
     const [, m, d] = ymd.split("-").map(Number);
     const wd = isoWeekday(ymd) - 1;
-    if (style === "short") return `${DAYS_SHORT[wd]} ${d} ${MONTHS_SHORT[m - 1]}`;
+    if (LG === "en") {
+      if (style === "short") return `${DAYS_SHORT[wd]} ${MONTHS_SHORT[m - 1]} ${d}`;
+      if (style === "day") return `${DAYS[wd]} ${d}`;
+      return `${DAYS[wd]}, ${MONTHS[m - 1]} ${d}`;
+    }
+    const de = LG === "es" ? " de " : " ";
+    if (style === "short") return `${DAYS_SHORT[wd]} ${d}${de}${MONTHS_SHORT[m - 1]}`;
     if (style === "day") return `${cap(DAYS[wd])} ${d}`;
-    return `${cap(DAYS[wd])} ${d} ${MONTHS[m - 1]}`;
+    return `${cap(DAYS[wd])} ${d}${de}${MONTHS[m - 1]}`;
   }
   function fmtDate(date, tz, style) { return fmtYmd(localYmd(new Date(date), tz), style); }
   function fmtPrice(cents) {
     if (cents == null) return "";
     const v = cents / 100;
-    return (Number.isInteger(v) ? String(v) : v.toFixed(2).replace(".", ",")) + " €";
+    const num = Number.isInteger(v) ? String(v) : (LG === "en" ? v.toFixed(2) : v.toFixed(2).replace(".", ","));
+    return LG === "en" ? "€" + num : num + " €";
   }
   function fmtDuration(min) {
     const h = Math.floor(min / 60), m = min % 60;
@@ -251,7 +282,7 @@
   const api = {
     normCrop, cropStyle, FONTS, fontsUrl, hexToRgb, mix, readableOn, setFavicon, normalizeCalendarUrl,
     pad, tzParts, zonedToUtc, localYmd, localHm, addDays, isoWeekday, diffDays, mondayOf,
-    DAYS, DAYS_SHORT, MONTHS, cap, fmtTime, hmLabel, fmtYmd, fmtDate, fmtPrice, fmtDuration,
+    DAYS, DAYS_SHORT, MONTHS, cap, LG, fmtTime, hmLabel, fmtYmd, fmtDate, fmtPrice, fmtDuration,
     computeSlots, overlaps, esc, uuid, storage, googleCalendarUrl,
   };
   root.PCW = Object.assign(root.PCW || {}, api);

@@ -14,7 +14,7 @@
 <link rel="manifest" href="manifest-espace.webmanifest">
 <meta name="theme-color" content="#0E2A52">
 <link rel="apple-touch-icon" href="admin/apple-touch-icon.png">
-<link rel="stylesheet" href="assets/site.css?v=mw7knqv8">
+<link rel="stylesheet" href="assets/site.css?v=mw92o81m">
 <style>
   :root { --nav-h: 68px; }
   body { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 12px); overflow-x: hidden; }
@@ -130,10 +130,11 @@
 <main class="wrap">
   <div class="space" id="space" aria-live="polite"><div class="panel"><div class="skeleton"></div><div class="skeleton" style="margin-top:12px;width:60%"></div></div></div>
 </main>
-<script src="assets/config.js?v=mw7knqv8"></script>
-<script src="assets/core.js?v=mw7knqv8"></script>
-<script src="assets/demo-data.js?v=mw7knqv8"></script>
-<script src="assets/api.js?v=mw7knqv8"></script>
+<script src="assets/config.js?v=mw92o81m"></script>
+<script src="assets/i18n.js?v=mw92o81m"></script>
+<script src="assets/core.js?v=mw92o81m"></script>
+<script src="assets/demo-data.js?v=mw92o81m"></script>
+<script src="assets/api.js?v=mw92o81m"></script>
 <script>
 (function () {
   "use strict";
@@ -235,7 +236,7 @@
     plus: IC('<path d="M12 5v14M5 12h14"/>'),
     star: IC('<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>'),
   };
-  const dayPart = (iso, tz, o) => new Intl.DateTimeFormat("fr-FR", Object.assign({ timeZone: tz }, o)).format(new Date(iso));
+  const dayPart = (iso, tz, o) => new Intl.DateTimeFormat((window.PCW_I18N && window.PCW_I18N.locale) || "fr-FR", Object.assign({ timeZone: tz }, o)).format(new Date(iso));
   const tile = (iso, tz, past) => `<div class="datetile ${past ? "past" : ""}" aria-hidden="true"><b>${esc(dayPart(iso, tz, { day: "numeric" }))}</b><span>${esc(dayPart(iso, tz, { month: "short" }).replace(".", ""))}</span></div>`;
   const ymdMs = (s) => Date.parse(s + "T12:00:00Z");
   function countdown(iso, tz) {

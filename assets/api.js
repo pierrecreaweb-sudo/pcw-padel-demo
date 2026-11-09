@@ -51,6 +51,11 @@
     };
     const sb = root.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY, { auth: { storage: authStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } });
     const unwrap = ({ data, error }) => { if (error) throw fromPg(error); return data; };
+    // Mémorise la langue du visiteur sur sa fiche joueur : ses emails arriveront dans cette langue.
+    const withLang = (slug, email, result) => {
+      try { if (email && window.PCW_LANG) sb.rpc("public_set_player_lang", { p_slug: slug, p_email: email, p_lang: window.PCW_LANG }).then(() => {}, () => {}); } catch {}
+      return result;
+    };
     const bookingSelect = "*, player:players(*), location:locations(*)";
 
     return {
@@ -62,17 +67,21 @@
       getSlotLevels: async (slug, serviceId, from, to) =>
         unwrap(await sb.rpc("public_get_slot_levels", { p_slug: slug, p_service_id: serviceId, p_from: from, p_to: to })) || [],
       getExtras: async (slug) => unwrap(await sb.rpc("public_get_extras", { p_slug: slug })) || { stages: [], packs: [], online_payment: false },
-      registerStage: async (slug, r) => unwrap(await sb.rpc("public_register_stage", {
+      registerStage: async (slug, r) => withLang(slug, r.email, unwrap(await sb.rpc("public_register_stage", {
         p_slug: slug, p_stage_id: r.stage_id, p_first_name: r.first_name, p_last_name: r.last_name || "",
-        p_email: r.email, p_phone: r.phone, p_party_size: r.party_size || 1, p_message: r.message || null })),
-      requestPack: async (slug, r) => unwrap(await sb.rpc("public_request_pack", {
-        p_slug: slug, p_pack_id: r.pack_id, p_first_name: r.first_name, p_last_name: r.last_name || "", p_email: r.email, p_phone: r.phone })),
+        p_email: r.email, p_phone: r.phone, p_party_size: r.party_size || 1, p_message: r.message || null }))),
+      requestPack: async (slug, r) => withLang(slug, r.email, unwrap(await sb.rpc("public_request_pack", {
+        p_slug: slug, p_pack_id: r.pack_id, p_first_name: r.first_name, p_last_name: r.last_name || "", p_email: r.email, p_phone: r.phone }))),
       playerLogin: async (slug, email, password) => {
         const r = unwrap(await sb.rpc("public_player_login", { p_slug: slug, p_email: email, p_password: password }));
         if (r && r.error) throw new ApiError(r.message || "Email ou mot de passe incorrect.", r.error);
+        withLang(slug, email, 0);
         return r.session;
       },
-      playerRequestAccess: async (slug, email) => !!unwrap(await sb.rpc("public_player_request_access", { p_slug: slug, p_email: email })),
+      playerRequestAccess: async (slug, email) => {
+        try { await sb.rpc("public_set_player_lang", { p_slug: slug, p_email: email, p_lang: window.PCW_LANG || "fr" }); } catch {}
+        return !!unwrap(await sb.rpc("public_player_request_access", { p_slug: slug, p_email: email }));
+      },
       playerSetPassword: async (token, password) => {
         const r = unwrap(await sb.rpc("public_player_set_password", { p_token: token, p_password: password }));
         if (!r || r.error || !r.session) throw new ApiError((r && r.message) || "Ce lien n'est plus valide. Demandez-en un nouveau.", (r && r.error) || "INVALID_TOKEN");
@@ -83,12 +92,12 @@
       playerLogout: async (session) => { try { await sb.rpc("public_player_logout", { p_session: session }); } catch {} return true; },
       setPlayerOptoutSession: async (session, optout) => !!unwrap(await sb.rpc("public_player_set_optout_session", { p_session: session, p_optout: !!optout })),
       setPlayerOptout: async (token, optout) => !!unwrap(await sb.rpc("public_player_set_optout", { p_token: token, p_optout: !!optout })),
-      book: async (slug, b) => unwrap(await sb.rpc("public_book", {
+      book: async (slug, b) => withLang(slug, b.email, unwrap(await sb.rpc("public_book", {
         p_slug: slug, p_service_id: b.service_id, p_starts_at: b.starts_at, p_first_name: b.first_name,
         p_last_name: b.last_name, p_email: b.email, p_phone: b.phone, p_level: b.level || null,
         p_message: b.message || null, p_party_size: b.party_size || 1,
         p_companions: (b.companions || []).map((c) => ({ first_name: c.first_name || "", email: c.email })),
-      })),
+      }))),
       getBooking: async (token) => unwrap(await sb.rpc("public_get_booking", { p_token: token })),
       cancelBooking: async (token) => unwrap(await sb.rpc("public_cancel_booking", { p_token: token })),
       getReviewRequest: async (token) => unwrap(await sb.rpc("public_get_review_request", { p_token: token })),
