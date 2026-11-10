@@ -3,6 +3,14 @@
   "use strict";
   const P = window.PCW;
   const esc = P.esc;
+  // Pays proposés au coach (code ISO) ; les noms suivent la langue de l'espace.
+  const COUNTRIES = ["FR", "ES", "GB", "IE", "US", "PT", "IT", "BE", "CH", "DE", "NL", "LU", "MC", "AD", "AT", "SE", "DK", "NO", "FI", "PL", "GR", "TR", "MA", "TN", "DZ", "EG", "ZA", "AE", "QA", "SA", "IN", "SG", "AU", "CA", "MX", "AR", "CL", "CO", "BR", "UY"];
+  function countryOpts(sel) {
+    sel = sel || "FR";
+    let dn = null; try { dn = new Intl.DisplayNames([window.PCW_LANG || "fr"], { type: "region" }); } catch (e) { /* ancien navigateur */ }
+    const list = COUNTRIES.includes(sel) ? COUNTRIES : [sel, ...COUNTRIES];
+    return list.map((c) => `<option value="${c}"${c === sel ? " selected" : ""}>${esc((dn && dn.of(c)) || c)}</option>`).join("");
+  }
   const app = document.getElementById("app");
 
   // =================================================================== état ===
@@ -1546,6 +1554,7 @@
           ${sec("s-identite", "Identité visuelle", `<div class="form-grid">
             <label class="field"><span>Nom du coach <small>(haut de la page d'accueil, annuaire, emails)</small></span><input type="text" id="co-name" maxlength="60" required value="${esc(S.coach.display_name || "")}" autocomplete="name"></label>
             <label class="field"><span>Ville</span><input type="text" id="co-city" maxlength="60" value="${esc(S.coach.city || "")}" placeholder="Montauban"></label>
+            <label class="field"><span>Pays <small>(pour l'annuaire)</small></span><select id="co-country">${countryOpts(S.coach.country)}</select></label>
             <label class="field"><span>Nom affiché en logo</span><input type="text" id="t-logo" maxlength="40" value="${esc(th.logo_text || "")}"></label>
             ${upload("logo_url", "Logo <small>(remplace le texte)</small>", th.logo_url)}
             ${upload("favicon_url", "Icône de l'onglet <small>(favicon : image carrée, 512 px conseillé)</small>", th.favicon_url)}
@@ -1883,13 +1892,13 @@
       phone: v("c-phone") || null, email: v("c-email") || null, whatsapp: wa || null, instagram: insta || null,
       legal_name: v("c-legal") || null, siret: v("c-siret") || null, conditions_extra: v("c-cond") || null, seo_title: v("c-seot"), seo_description: v("c-seod"),
     };
-    const name = v("co-name").replace(/\s+/g, " "), city = v("co-city").replace(/\s+/g, " ");
+    const name = v("co-name").replace(/\s+/g, " "), city = v("co-city").replace(/\s+/g, " "), country = v("co-country") || "FR";
     if (name.length < 2) { document.getElementById("co-name").focus(); return toast("Indiquez le nom du coach."); }
     const btn = e.target.querySelector("button[type=submit]");
     btn.disabled = true; btn.textContent = "Enregistrement…";
     try {
-      if (name !== S.coach.display_name || (city || null) !== (S.coach.city || null)) {
-        Object.assign(S.coach, await S.api.updateCoach(S.coach.id, { display_name: name, city: city || null }));
+      if (name !== S.coach.display_name || (city || null) !== (S.coach.city || null) || country !== (S.coach.country || "FR")) {
+        Object.assign(S.coach, await S.api.updateCoach(S.coach.id, { display_name: name, city: city || null, country }));
         const sb = document.querySelector(".side__brand span:last-child");
         if (sb) sb.textContent = S.coach.display_name.toUpperCase();
       }
